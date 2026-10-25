@@ -1596,136 +1596,357 @@ button {
     50% { opacity: 0.4; transform: scale(0.85); }
 }
 
-/* ================= RESPONSIVE ================= */
-@media (max-width: 900px) {
+
+/* ==========================================================================
+   FULLY COMPREHENSIVE RESPONSIVE DESIGN (Mobile, Tablet, Desktop)
+   ========================================================================== */
+
+/* Tablet & Smaller Desktops (<= 992px) */
+@media (max-width: 992px) {
     .topbar-inner {
-        padding: 0 16px;
+        padding: 0 20px;
         gap: 16px;
     }
-
-    .nav-links {
-        display: none;
+    .section-container {
+        padding: 48px 20px;
     }
-
     .theatre-show-card {
+        grid-template-columns: 240px 1fr;
+        gap: 20px;
+        padding: 20px;
+    }
+    .movie-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 18px;
+    }
+}
+
+/* Tablet & Mobile Screens (<= 768px) */
+@media (max-width: 768px) {
+    .nav-links {
+        display: none !important;
+    }
+    .topbar {
+        height: auto;
+        min-height: 64px;
+        padding: 10px 0;
+    }
+    .topbar-inner {
+        padding: 0 16px;
+        gap: 14px;
+    }
+    .brand {
+        font-size: 19px;
+    }
+    .brand-logo {
+        width: 32px;
+        height: 32px;
+    }
+    .hero-section {
+        padding: 36px 20px 48px;
+        min-height: auto;
+    }
+    .hero-title {
+        font-size: clamp(28px, 6vw, 46px);
+        margin-bottom: 12px;
+    }
+    .hero-synopsis {
+        font-size: 13.5px;
+        line-height: 1.55;
+        margin-bottom: 22px;
+    }
+    .theatre-show-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 18px;
+    }
+    .theatre-info-col {
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: 14px;
+    }
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .section-title {
+        font-size: 24px;
+    }
+    .showtimes-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .date-strip {
+        width: 100%;
+        padding-bottom: 6px;
+    }
+    .movie-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 14px;
+    }
+    .movie-detail-body {
         grid-template-columns: 1fr;
         gap: 20px;
     }
-
-    .hero-section {
-        padding: 48px 24px;
-        min-height: 480px;
+    .detail-poster-wrap {
+        max-width: 150px;
+        margin: 0 auto;
     }
-
-    .hero-carousel-dots {
-        display: none;
+    .detail-title {
+        font-size: 20px;
+        text-align: center;
+    }
+    .detail-meta-row {
+        justify-content: center;
     }
 }
 
-@media (max-width: 600px) {
+/* Mobile Screens (<= 580px) */
+@media (max-width: 580px) {
+    .topbar {
+        padding: 8px 0;
+    }
+    .topbar-inner {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 12px;
+    }
+    .brand {
+        font-size: 18px;
+    }
     .search-box {
-        display: none;
+        order: 3;
+        width: 100%;
+        max-width: 100%;
+        height: 38px;
+        padding: 0 12px;
+        margin-top: 2px;
     }
-
+    .header-actions {
+        gap: 8px;
+    }
+    .city-selector {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+    .city-selector select {
+        font-size: 12px;
+    }
+    .profile-btn {
+        padding: 4px 10px 4px 4px;
+        font-size: 12px;
+        gap: 6px;
+    }
+    .avatar-text {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+    }
+    .hero-section {
+        padding: 24px 14px 40px;
+    }
+    .hero-badge-row {
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+    .live-pill, .sound-pill {
+        font-size: 9px;
+        padding: 3px 8px;
+    }
     .hero-title {
-        font-size: 34px;
+        font-size: clamp(24px, 8vw, 36px);
+        margin-bottom: 10px;
     }
-
+    .hero-tags {
+        font-size: 11px;
+        gap: 6px;
+        margin-bottom: 14px;
+    }
+    .hero-synopsis {
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin-bottom: 18px;
+    }
     .hero-cta-group {
         flex-direction: column;
-        align-items: stretch;
+        width: 100%;
+        gap: 10px;
     }
-
+    .hero-cta-group .btn-primary,
+    .hero-cta-group .btn-secondary {
+        width: 100%;
+        padding: 12px;
+        font-size: 13px;
+        justify-content: center;
+    }
+    .hero-carousel-dots {
+        bottom: 14px;
+        right: 14px;
+    }
+    .dot-btn {
+        width: 20px;
+        height: 3px;
+    }
+    .dot-btn.active {
+        width: 32px;
+    }
+    .section-container {
+        padding: 32px 14px;
+    }
+    .section-eyebrow {
+        font-size: 10px;
+        letter-spacing: 1px;
+    }
+    .section-title {
+        font-size: 20px;
+    }
+    .filter-pills {
+        gap: 6px;
+        padding-bottom: 4px;
+    }
+    .filter-pill {
+        padding: 5px 12px;
+        font-size: 11px;
+    }
     .movie-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 14px;
+        gap: 10px;
     }
-
+    .movie-card {
+        border-radius: var(--radius-sm);
+    }
+    .movie-details {
+        padding: 10px;
+    }
+    .movie-title {
+        font-size: 13px;
+        margin-bottom: 2px;
+    }
+    .movie-subtitle {
+        font-size: 10.5px;
+        margin-bottom: 4px;
+    }
+    .movie-desc {
+        display: none !important; /* Hide description on mobile to keep cards uniform and compact */
+    }
+    .btn-card-book {
+        padding: 7px 10px;
+        font-size: 11px;
+    }
+    .date-btn {
+        width: 50px;
+        height: 56px;
+        border-radius: var(--radius-sm);
+    }
+    .date-btn .day-label {
+        font-size: 10px;
+    }
+    .date-btn .date-num {
+        font-size: 16px;
+    }
+    .theatre-show-card {
+        padding: 14px;
+        border-radius: var(--radius-sm);
+    }
+    .theatre-name {
+        font-size: 15px;
+    }
+    .theatre-address {
+        font-size: 11px;
+    }
+    .group-movie-title h4 {
+        font-size: 13px;
+    }
+    .time-slot-grid {
+        gap: 6px;
+    }
+    .slot-btn {
+        padding: 6px 10px;
+        border-radius: 4px;
+    }
+    .slot-btn .slot-time {
+        font-size: 11.5px;
+    }
+    .slot-btn .slot-price {
+        font-size: 9.5px;
+    }
+    /* Mobile Sheet Modals */
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end; /* Native bottom sheet modal on mobile */
+    }
+    .modal-card {
+        padding: 20px 14px;
+        max-height: 90vh;
+        border-radius: 20px 20px 0 0;
+        overflow-y: auto;
+    }
+    .modal-head {
+        margin-bottom: 14px;
+    }
+    .modal-head h2 {
+        font-size: 18px;
+    }
+    .screen-visualizer {
+        margin: 12px 0 20px;
+    }
+    .screen-curve {
+        width: 90%;
+        height: 6px;
+    }
+    .seat-container {
+        max-height: 240px;
+        padding: 4px 0;
+    }
+    .seat-grid {
+        grid-template-columns: repeat(10, 1fr);
+        gap: 3px;
+        width: 100%;
+        max-width: 330px;
+        margin: 0 auto;
+    }
+    .seat-item {
+        width: 25px;
+        height: 25px;
+        font-size: 8px;
+        border-radius: 4px;
+    }
+    .seat-legend {
+        gap: 12px;
+        margin: 14px 0 12px;
+        font-size: 11px;
+    }
     .modal-action-bar {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
+        padding-top: 14px;
     }
-
-    .booking-modal-card {
-        padding: 20px 16px;
+    .btn-book {
+        width: 100%;
+        padding: 12px;
     }
-
-    .seat-grid {
-        gap: 5px;
+    .site-footer {
+        padding: 28px 14px 18px;
+        margin-top: 40px;
     }
-
-    .seat-item {
-        width: 28px;
-        height: 28px;
-        font-size: 9px;
+    .footer-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
-}
-
-/* ================= SEARCH & INTERACTION ENHANCEMENTS ================= */
-.search-submit-btn {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(248, 68, 100, 0.2);
-    color: var(--brand-red);
-    display: grid;
-    place-items: center;
-    font-size: 13px;
-    margin-left: 6px;
-    transition: all 0.2s;
-}
-
-.search-submit-btn:hover {
-    background: var(--brand-red);
-    color: white;
-    transform: scale(1.1);
-}
-
-.search-results-banner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 18px;
-    background: rgba(248, 68, 100, 0.12);
-    border: 1px solid var(--brand-red);
-    border-radius: var(--radius-sm);
-    margin-bottom: 24px;
-    color: var(--text-primary);
-    font-size: 13px;
-    animation: fadeInRise 0.3s ease-out;
-}
-
-.btn-clear-search {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--brand-red);
-    font-weight: 700;
-    text-decoration: underline;
-    cursor: pointer;
-}
-
-@keyframes searchPulseGlow {
-    0%, 100% {
-        box-shadow: 0 0 0 0 rgba(248, 68, 100, 0);
-        transform: translateY(0);
+    .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 11px;
     }
-    50% {
-        box-shadow: 0 0 25px 5px rgba(248, 68, 100, 0.7);
-        border-color: var(--brand-red);
-        transform: translateY(-8px) scale(1.03);
+    .toast-notification {
+        left: 12px;
+        right: 12px;
+        bottom: 16px;
+        font-size: 12px;
+        padding: 10px 14px;
     }
 }
-
-.movie-card.search-highlight {
-    animation: searchPulseGlow 1.2s ease-in-out 3;
-    border-color: var(--brand-red);
-}
-
-.hero-backdrop {
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.1, 1, 0.1, 1);
-}
-
-.hero-backdrop.crossfade-out {
-    opacity: 0.2;
-}
-
