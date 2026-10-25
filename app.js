@@ -93,7 +93,14 @@ const CITY_THEATRES = {
 // STATE MANAGEMENT
 // ======================================================
 
-const savedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") || "null");
+const rawSavedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") || "null");
+if (rawSavedProfile) {
+    if (rawSavedProfile.phone) rawSavedProfile.phone = maskPhone(rawSavedProfile.phone);
+    if (rawSavedProfile.name && rawSavedProfile.name.toLowerCase().includes("satyam")) rawSavedProfile.name = "Cinema Fan";
+    if (rawSavedProfile.email && rawSavedProfile.email.toLowerCase().includes("satyam")) rawSavedProfile.email = "cinema.fan@example.com";
+    try { localStorage.setItem("bookmyshow_profile", JSON.stringify(rawSavedProfile)); } catch {}
+}
+const savedProfile = rawSavedProfile;
 
 const state = {
     movies: [...FALLBACK_MOVIES],
@@ -135,6 +142,18 @@ function formatTime(isoString) {
     } catch {
         return isoString;
     }
+}
+
+
+function maskPhone(phone) {
+    if (!phone) return "";
+    const clean = String(phone).replace(/\D/g, "");
+    if (clean.length >= 10) {
+        return clean.slice(0, 2) + "XXXXXX" + clean.slice(-2);
+    } else if (clean.length >= 4) {
+        return clean.slice(0, 2) + "XXXX" + clean.slice(-1);
+    }
+    return "XXXXXXXXXX";
 }
 
 function formatMoney(amount) {
@@ -244,7 +263,7 @@ function generateDynamicShows(cityName, dateStr) {
 // HERO SECTION WITH AUTO-ROTATION (Every 5.5 seconds)
 // ======================================================
 
-const HERO_ROTATION_INTERVAL = 5500; // 5.5 seconds rotation
+const HERO_ROTATION_INTERVAL = 4500; // 4.5 seconds rotation // 5.5 seconds rotation
 
 function getHeroMovies() {
     if (state.movies && state.movies.length > 0) {
@@ -740,32 +759,39 @@ function renderShows() {
     });
 }
 
+// In-memory cache for ultra-fast instant switching between cities & dates
+const showsCache = {};
+
 async function loadShows() {
     const selectedCity = $("#citySelect").value;
-    const city = encodeURIComponent(selectedCity);
-    const container = $("#showList");
+    const cacheKey = `${selectedCity}_${state.selectedDate}`;
 
-    try {
-        const shows = await fetchJson(`/shows?city=${city}&date=${state.selectedDate}`);
-        console.log("SHOWS FETCHED:", shows);
-        let list = Array.isArray(shows) ? shows : [];
-
-        // If backend database has no shows for this date (e.g. future dates or days later),
-        // seamlessly generate fresh schedule so it is NEVER blank!
-        if (list.length === 0) {
-            list = generateDynamicShows(selectedCity, state.selectedDate);
-        }
-
-        state.shows = list;
-    } catch (err) {
-        console.warn("Using persistent dynamic shows:", err.message);
+    // 1. INSTANT ZERO-LAG RENDER: Render immediately from cache or dynamic generator in 0ms
+    if (showsCache[cacheKey]) {
+        state.shows = showsCache[cacheKey];
+    } else {
         state.shows = generateDynamicShows(selectedCity, state.selectedDate);
-    } finally {
-        state.showsLoaded = true;
-        renderShows();
-        renderMovies();
-        renderHero(false);
-        restartHeroAutoRotate();
+        showsCache[cacheKey] = state.shows;
+    }
+    
+    state.showsLoaded = true;
+    renderShows();
+    renderMovies();
+    renderHero(false);
+    restartHeroAutoRotate();
+
+    // 2. Background cloud synchronization without freezing or showing loading spinners
+    try {
+        const cityParam = encodeURIComponent(selectedCity);
+        const backendShows = await fetchJson(`/shows?city=${cityParam}&date=${state.selectedDate}`);
+        if (Array.isArray(backendShows) && backendShows.length > 0) {
+            state.shows = backendShows;
+            showsCache[cacheKey] = backendShows;
+            renderShows();
+            renderMovies();
+        }
+    } catch (err) {
+        // Smoothly retain instant shows
     }
 }
 
@@ -884,7 +910,8 @@ function openConfirmationModal() {
     $("#confirmMovieTitle").textContent = show.movie?.title || "";
     $("#confirmTheatreName").textContent = show.theatre?.name || "";
     $("#confirmShowtime").textContent = formatTime(show.startsAt);
-    $("#bookingProfileLabel").textContent = `Booking for ${state.profile.name} (${state.profile.email || state.profile.phone})`;
+    const contactInfo = state.profile.email || maskPhone(state.profile.phone);
+    $("#bookingProfileLabel").textContent = `Booking for ${state.profile.name} (${contactInfo})`;
     $("#formSeats").textContent = state.selectedSeats.join(", ");
 
     const total = state.selectedSeats.length * Number(show.ticketPrice || 0);
@@ -1022,7 +1049,8 @@ function updateProfileUI() {
         $("#profileView").style.display = "block";
 
         $("#profileDisplayName").textContent = profile.name;
-        $("#profileDisplayContact").textContent = `${profile.email} • ${profile.phone}`;
+        const maskedPhone = profile.phone ? maskPhone(profile.phone) : "";
+        $("#profileDisplayContact").textContent = maskedPhone ? `${profile.email} • ${maskedPhone}` : profile.email;
         $("#profileBadgeLetter").textContent = profile.name.charAt(0).toUpperCase();
         loadBookingHistory();
     } else {
@@ -1040,6 +1068,11 @@ function updateProfileUI() {
 }
 
 function setProfile(profile) {
+    if (profile) {
+        if (profile.phone) profile.phone = maskPhone(profile.phone);
+        if (profile.name && profile.name.toLowerCase().includes("satyam")) profile.name = "Cinema Fan";
+        if (profile.email && profile.email.toLowerCase().includes("satyam")) profile.email = "cinema.fan@example.com";
+    }
     state.profile = profile;
     localStorage.setItem("bookmyshow_profile", JSON.stringify(profile));
     updateProfileUI();
@@ -1080,7 +1113,7 @@ $("#profileLoginForm").onsubmit = async (e) => {
             id: 1,
             name: identifier.includes("@") ? identifier.split("@")[0] : "Cinema Fan",
             email: identifier.includes("@") ? identifier : "user@example.com",
-            phone: identifier.includes("@") ? "9876543210" : identifier
+            phone: identifier.includes("@") ? "98XXXXXXXX" : maskPhone(identifier)
         };
         setProfile(profile);
         showToast(`Signed in as ${profile.name}!`, true);
@@ -1312,6 +1345,14 @@ window.addEventListener("keydown", (e) => {
 // ======================================================
 // APP INITIALIZATION
 // ======================================================
+
+// Pre-warm dynamic shows for all cities so city switching is instant 0ms
+["Nashik", "Bengaluru", "Mumbai", "Delhi"].forEach(city => {
+    const key = `${city}_${state.selectedDate}`;
+    if (!showsCache[key]) {
+        showsCache[key] = generateDynamicShows(city, state.selectedDate);
+    }
+});
 
 updateProfileUI();
 renderDates();

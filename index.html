@@ -304,7 +304,7 @@
             <div class="modal-head">
                 <span class="section-eyebrow">FINAL STEP</span>
                 <h2 id="customerTitle">Confirm Your Ticket</h2>
-                <p id="bookingProfileLabel" class="modal-sub">Booking for Satyam Pandey (satyam@example.com)</p>
+                <p id="bookingProfileLabel" class="modal-sub">Ticket & Booking Details</p>
             </div>
 
             <form id="customerForm" class="confirmation-form">
@@ -365,10 +365,10 @@
                 </div>
 
                 <!-- Login Form -->
-                <form id="profileLoginForm" class="auth-form">
+                <form id="profileLoginForm" class="auth-form" autocomplete="off">
                     <div class="input-group">
                         <label for="profileIdentifier">Email Address or Mobile Number</label>
-                        <input id="profileIdentifier" required type="text" placeholder="e.g. satyam@example.com or 9569671854">
+                        <input id="profileIdentifier" name="bms_login_uid" required type="text" placeholder="Enter email address or mobile number" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <button class="btn-primary" type="submit">
@@ -378,20 +378,20 @@
                 </form>
 
                 <!-- Create Form -->
-                <form id="profileCreateForm" class="auth-form" hidden style="display: none;">
+                <form id="profileCreateForm" class="auth-form" autocomplete="off" hidden style="display: none;">
                     <div class="input-group">
                         <label for="profileName">Full Name</label>
-                        <input id="profileName" required maxlength="100" placeholder="e.g. Satyam Pandey">
+                        <input id="profileName" name="bms_user_fname" required maxlength="100" placeholder="Enter your full name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <div class="input-group">
                         <label for="profileEmail">Email Address</label>
-                        <input id="profileEmail" required type="email" maxlength="200" placeholder="e.g. you@example.com">
+                        <input id="profileEmail" name="bms_user_email_addr" required type="email" maxlength="200" placeholder="name@example.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <div class="input-group">
                         <label for="profilePhone">Mobile Number</label>
-                        <input id="profilePhone" required type="tel" pattern="[0-9+ ()-]{10,20}" maxlength="20" placeholder="e.g. 9876543210">
+                        <input id="profilePhone" name="bms_user_cell_no" required type="text" inputmode="numeric" pattern="[0-9+ ()-]{10,20}" maxlength="15" placeholder="e.g. 98XXXXXXXX" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <button class="btn-primary" type="submit">
