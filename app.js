@@ -285,7 +285,7 @@ function generateDynamicShows(cityName, dateStr) {
 // HERO SECTION WITH AUTO-ROTATION (Every 5.5 seconds)
 // ======================================================
 
-const HERO_ROTATION_INTERVAL = 4800; // Increased by +0.8s for smooth cinematic pacing
+const HERO_ROTATION_INTERVAL = 5200; // 5.2s rotation with comfortable reading pacing
 
 function getHeroMovies() {
     if (state.movies && state.movies.length > 0) {
@@ -849,57 +849,114 @@ async function loadShows() {
 }
 
 // ======================================================
-// SEAT RESERVATION HELPERS (True State & Cancellation)
+// UNIFIED SEAT RESERVATION ENGINE (Derived from Real Bookings)
 // ======================================================
 
+function normalizeStr(str) {
+    return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function parseSeatLabels(seatLabel) {
+    if (Array.isArray(seatLabel)) return seatLabel.map(s => String(s).toUpperCase().trim());
+    if (typeof seatLabel === "string") return seatLabel.split(",").map(s => String(s).toUpperCase().trim()).filter(Boolean);
+    return [];
+}
+
+function getAllActiveProfileBookings() {
+    const list = [];
+    if (state.profile?.id) {
+        const profileBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        list.push(...profileBookings);
+    }
+    if (Array.isArray(activeBookingsList) && activeBookingsList.length > 0) {
+        activeBookingsList.forEach(b => {
+            if (!list.some(existing => String(existing.id) === String(b.id))) {
+                list.push(b);
+            }
+        });
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("bms_bookings_")) {
+            try {
+                const arr = JSON.parse(localStorage.getItem(key) || "[]");
+                if (Array.isArray(arr)) {
+                    arr.forEach(b => {
+                        if (!list.some(existing => String(existing.id) === String(b.id))) {
+                            list.push(b);
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+    }
+    return list;
+}
+
+function getOccupiedSeatsForCurrentShow() {
+    const show = state.selectedShow;
+    if (!show) return new Set();
+
+    const showMovieNorm = normalizeStr(show.movie?.title);
+    const showCityNorm = normalizeStr(show.theatre?.city || $("#citySelect")?.value);
+    const showTimeStr = formatTime(show.startsAt).trim();
+    const showIdStr = String(show.id);
+
+    const occupiedSeats = new Set();
+    const allBookings = getAllActiveProfileBookings();
+
+    const cancelledIds = new Set();
+    if (state.profile?.id) {
+        const cArr = JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile.id}`) || "[]");
+        cArr.forEach(id => cancelledIds.add(String(id)));
+    }
+
+    allBookings.forEach(b => {
+        const isCancelled = b.status === "CANCELLED" || cancelledIds.has(String(b.id));
+        if (isCancelled) return; // Cancelled bookings NEVER occupy seats!
+
+        if (b.status === "CONFIRMED") {
+            const bMovieNorm = normalizeStr(b.movieTitle);
+            const bCityNorm = normalizeStr(b.theatreCity || b.city);
+            const bTimeStr = (b.showtime || (b.startsAt ? formatTime(b.startsAt) : "")).trim();
+            const bShowIdStr = String(b.showId || b.ShowId || "");
+
+            const idMatches = bShowIdStr && bShowIdStr === showIdStr;
+            const detailsMatch = bMovieNorm && showMovieNorm && bMovieNorm === showMovieNorm &&
+                (!bTimeStr || !showTimeStr || bTimeStr === showTimeStr) &&
+                (!bCityNorm || !showCityNorm || bCityNorm === showCityNorm);
+
+            if (idMatches || detailsMatch) {
+                const seats = parseSeatLabels(b.seatLabel);
+                seats.forEach(s => occupiedSeats.add(s));
+            }
+        }
+    });
+
+    return occupiedSeats;
+}
+
 function getReservedSeats(showId) {
-    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
-    return all[String(showId)] || [];
+    return Array.from(getOccupiedSeatsForCurrentShow());
 }
 
 function getReleasedSeats(showId) {
-    const all = JSON.parse(localStorage.getItem("bms_released_seats") || "{}");
-    return all[String(showId)] || [];
+    return [];
 }
 
 function markSeatsReserved(showId, seats) {
-    if (!showId || !seats) return;
+    // Keep for backward compatibility
     const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
     const current = new Set(all[String(showId)] || []);
-    const released = JSON.parse(localStorage.getItem("bms_released_seats") || "{}");
-    const relSet = new Set(released[String(showId)] || []);
-
-    seats.forEach(s => {
-        const u = String(s).toUpperCase().trim();
-        current.add(u);
-        relSet.delete(u);
-    });
-
+    seats.forEach(s => current.add(String(s).toUpperCase().trim()));
     all[String(showId)] = Array.from(current);
-    released[String(showId)] = Array.from(relSet);
     localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
-    localStorage.setItem("bms_released_seats", JSON.stringify(released));
 }
 
 function releaseSeats(showId, seats) {
-    if (!showId || !seats) return;
     const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
-    const current = new Set(all[String(showId)] || []);
-    const released = JSON.parse(localStorage.getItem("bms_released_seats") || "{}");
-    const relSet = new Set(released[String(showId)] || []);
-
-    const seatArr = Array.isArray(seats) ? seats : (typeof seats === "string" ? seats.split(",").map(s => s.trim()) : []);
-
-    seatArr.forEach(s => {
-        const u = String(s).toUpperCase().trim();
-        current.delete(u);
-        relSet.add(u);
-    });
-
-    all[String(showId)] = Array.from(current);
-    released[String(showId)] = Array.from(relSet);
+    delete all[String(showId)];
     localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
-    localStorage.setItem("bms_released_seats", JSON.stringify(released));
 }
 
 // ======================================================
@@ -939,51 +996,12 @@ function renderSeatMap() {
         seatLabels.push(`${row}${col}`);
     }
 
-    // 1. Local reserved & released tracking
-    const localReserved = new Set(getReservedSeats(show.id).map(s => String(s).toUpperCase().trim()));
-    const localReleased = new Set(getReleasedSeats(show.id).map(s => String(s).toUpperCase().trim()));
-
-    // 2. Scan all user cancelled bookings to guarantee released seats for this movie/show
-    const userBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile?.id}`) || "[]");
-    const cancelledIds = new Set(JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile?.id}`) || "[]"));
-    const cancelledSeatsForThisMovie = new Set();
-
-    userBookings.forEach(b => {
-        const isCancelled = b.status === "CANCELLED" || cancelledIds.has(String(b.id));
-        if (isCancelled) {
-            const matchesShow = String(b.showId || b.ShowId) === String(show.id);
-            const movieA = (b.movieTitle || "").trim().toLowerCase();
-            const movieB = (show.movie?.title || "").trim().toLowerCase();
-            const matchesMovie = movieA && movieB && (movieA.includes(movieB) || movieB.includes(movieA));
-
-            if (matchesShow || matchesMovie) {
-                const seats = Array.isArray(b.seatLabel) 
-                    ? b.seatLabel 
-                    : (typeof b.seatLabel === "string" ? b.seatLabel.split(",").map(s => s.trim()) : []);
-                seats.forEach(s => cancelledSeatsForThisMovie.add(String(s).toUpperCase().trim()));
-            }
-        }
-    });
-
-    // Backend available set if provided
-    const hasBackendAvailable = Array.isArray(show.availableSeatLabels) && show.availableSeatLabels.length > 0;
-    const backendAvailableSet = hasBackendAvailable 
-        ? new Set(show.availableSeatLabels.map(label => String(label).toUpperCase().trim()))
-        : null;
+    // True occupied seats derived directly from CONFIRMED bookings
+    const occupiedSeats = getOccupiedSeatsForCurrentShow();
 
     const seatGrid = $("#seatGrid");
     seatGrid.innerHTML = seatLabels.map(label => {
-        // A seat is available if in localReleased OR cancelledSeatsForThisMovie
-        const isReleased = localReleased.has(label) || cancelledSeatsForThisMovie.has(label);
-        
-        if (isReleased) {
-            localReserved.delete(label);
-        }
-
-        const isOccupied = !isReleased && (
-            localReserved.has(label) || 
-            (backendAvailableSet && !backendAvailableSet.has(label))
-        );
+        const isOccupied = occupiedSeats.has(label);
         const isSelected = state.selectedSeats.includes(label);
 
         return `
