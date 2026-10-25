@@ -915,14 +915,19 @@ button {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    z-index: 100;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 1000;
     background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    display: grid;
-    place-items: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     padding: 24px;
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .modal-overlay[hidden] {
@@ -931,12 +936,14 @@ button {
 
 .modal-card {
     position: relative;
+    margin: auto !important;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-modal);
     width: 100%;
     animation: modalScaleIn 0.25s cubic-bezier(0.1, 1, 0.1, 1);
+    box-sizing: border-box;
 }
 
 .modal-close-btn {

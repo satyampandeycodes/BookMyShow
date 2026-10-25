@@ -258,9 +258,7 @@ function generateDynamicShows(cityName, dateStr) {
             for (let i = 0; i < 100; i++) {
                 const row = String.fromCharCode(65 + Math.floor(i / 10));
                 const col = (i % 10) + 1;
-                if ((i + itemIdx + tIdx) % 7 !== 0) {
-                    availableSeats.push(`${row}${col}`);
-                }
+                availableSeats.push(`${row}${col}`);
             }
 
             generated.push({
@@ -845,6 +843,31 @@ async function loadShows() {
 }
 
 // ======================================================
+// SEAT RESERVATION HELPERS (True State & Cancellation)
+// ======================================================
+
+function getReservedSeats(showId) {
+    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+    return all[String(showId)] || [];
+}
+
+function markSeatsReserved(showId, seats) {
+    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+    const current = new Set(all[String(showId)] || []);
+    seats.forEach(s => current.add(String(s).toUpperCase().trim()));
+    all[String(showId)] = Array.from(current);
+    localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+}
+
+function releaseSeats(showId, seats) {
+    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+    const current = new Set(all[String(showId)] || []);
+    seats.forEach(s => current.delete(String(s).toUpperCase().trim()));
+    all[String(showId)] = Array.from(current);
+    localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+}
+
+// ======================================================
 // SEAT SELECTION & BOOKING MODAL
 // ======================================================
 
@@ -880,12 +903,19 @@ function renderSeatMap() {
         seatLabels.push(`${row}${col}`);
     }
 
-    const availableList = show.availableSeatLabels || [];
-    const availableSet = new Set(availableList.map(label => String(label).toUpperCase().trim()));
+    // Local reserved seats for this show
+    const localReserved = new Set(getReservedSeats(show.id).map(s => String(s).toUpperCase().trim()));
+
+    // Backend available set if provided
+    const hasBackendAvailable = Array.isArray(show.availableSeatLabels) && show.availableSeatLabels.length > 0;
+    const backendAvailableSet = hasBackendAvailable 
+        ? new Set(show.availableSeatLabels.map(label => String(label).toUpperCase().trim()))
+        : null;
 
     const seatGrid = $("#seatGrid");
     seatGrid.innerHTML = seatLabels.map(label => {
-        const isOccupied = !availableSet.has(label);
+        // Seat is occupied ONLY if reserved locally or marked unavailable by backend
+        const isOccupied = localReserved.has(label) || (backendAvailableSet && !backendAvailableSet.has(label));
         const isSelected = state.selectedSeats.includes(label);
 
         return `
@@ -1011,10 +1041,14 @@ $("#customerForm").onsubmit = async (e) => {
             };
         }
 
-        // Save ticket to local profile history as well
+        // Mark seats as reserved
+        markSeatsReserved(show.id, state.selectedSeats);
+
+        // Save ticket to local profile history with showId
         const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
         localBookings.unshift({
             id: result.id || Date.now(),
+            showId: show.id,
             movieTitle: show.movie?.title,
             theatreName: show.theatre?.name,
             seatLabel: [...state.selectedSeats],
@@ -1278,12 +1312,17 @@ function renderBookingCards(list) {
                 // Ignore backend cancel errors for local fallback bookings
             }
 
-            // Update local storage
+            // Update local storage and release seats so they immediately become available again!
             const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+            const targetBooking = localBookings.find(b => String(b.id) === String(bookingId));
+            if (targetBooking && targetBooking.showId && Array.isArray(targetBooking.seatLabel)) {
+                releaseSeats(targetBooking.showId, targetBooking.seatLabel);
+            }
+
             const updated = localBookings.map(b => String(b.id) === String(bookingId) ? { ...b, status: "CANCELLED" } : b);
             localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(updated));
 
-            showToast("Booking cancelled successfully.", true);
+            showToast("Booking cancelled & seats released successfully.", true);
             loadBookingHistory();
             loadShows();
         };
