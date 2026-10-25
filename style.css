@@ -2317,3 +2317,75 @@ button {
     background: #f84464;
     color: #fff;
 }
+
+
+/* ===================================================== */
+/*      HIGH Z-INDEX & EXPANDABLE TICKET ACCORDION       */
+/* ===================================================== */
+#ticketDetailModal,
+#ticketDetailModal.modal-overlay {
+    z-index: 2500 !important;
+}
+
+.ticket-expandable-details {
+    display: none;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.15);
+    animation: fadeIn 0.2s ease-in;
+}
+
+.ticket-expandable-details.open {
+    display: block !important;
+}
+
+.ticket-detail-table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+}
+
+.detail-key {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.detail-val {
+    color: #f1f5f9;
+    font-weight: 600;
+}
+
+.btn-open-pass {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #f84464 0%, #c41838 100%);
+    color: #fff;
+    border: none;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    width: 100%;
+    margin-top: 6px;
+}
+
+.btn-open-pass:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(248, 68, 100, 0.4);
+}
