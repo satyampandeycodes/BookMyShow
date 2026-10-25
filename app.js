@@ -1,5 +1,5 @@
 /**
- * BookMyShow Frontend Application
+ * MovieVerse Frontend Application (Inspired by BookMyShow)
  * Connects directly to Spring Boot backend (/api/v1)
  * Enhanced with permanent fallback content so data NEVER disappears.
  */
@@ -13,7 +13,7 @@ const API_BASE = (window.location.hostname === "localhost" || window.location.ho
     ? "http://localhost:8080/api/v1"
     : "https://bookmyshowbe-2fqf.onrender.com/api/v1";
 
-console.log("BookMyShow API Endpoint:", API_BASE);
+console.log("MovieVerse API Endpoint:", API_BASE);
 
 // ======================================================
 // PERMANENT FALLBACK MOVIES & THEATRES (Zero-Downtime Guarantee)
@@ -119,7 +119,7 @@ const CITY_SCHEDULES = {
 // STATE MANAGEMENT
 // ======================================================
 
-const savedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") || "null");
+const savedProfile = JSON.parse(localStorage.getItem("movieverse_profile") || localStorage.getItem("bookmyshow_profile") || "null");
 
 const state = {
     movies: [...FALLBACK_MOVIES],
@@ -1146,6 +1146,7 @@ function updateProfileUI() {
 
 function setProfile(profile) {
     state.profile = profile;
+    localStorage.setItem("movieverse_profile", JSON.stringify(profile));
     localStorage.setItem("bookmyshow_profile", JSON.stringify(profile));
     updateProfileUI();
 
@@ -1241,6 +1242,7 @@ $("#profileCreateForm").onsubmit = async (e) => {
 // Logout
 $("#logoutButton").onclick = () => {
     state.profile = null;
+    localStorage.removeItem("movieverse_profile");
     localStorage.removeItem("bookmyshow_profile");
     updateProfileUI();
     showToast("Signed out successfully.", true);
