@@ -2036,3 +2036,284 @@ button {
         padding: 10px 14px;
     }
 }
+
+
+/* ===================================================== */
+/*            DIGITAL E-TICKET & PASS STYLES             */
+/* ===================================================== */
+.ticket-modal-card {
+    max-width: 460px;
+    width: 92%;
+    padding: 24px;
+    background: #141721 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    margin: auto !important;
+    animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ticket-success-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ticket-success-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--emerald);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ticket-main-title {
+    font-size: 19px;
+    font-weight: 800;
+    color: #fff;
+    margin: 2px 0 0 0;
+}
+
+.cinema-pass-card {
+    background: linear-gradient(145deg, #1d2130 0%, #151824 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    margin-bottom: 18px;
+}
+
+.pass-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.pass-movie-info h3 {
+    font-size: 17px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 3px 0;
+}
+
+.pass-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.pass-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.pass-grid-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pass-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+}
+
+.pass-grid-item strong {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 700;
+}
+
+.pass-city, .pass-sub-val {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.pass-highlight {
+    color: #f84464 !important;
+}
+
+.pass-price {
+    color: var(--emerald) !important;
+}
+
+.pass-divider {
+    position: relative;
+    height: 18px;
+    margin: 4px -18px 12px;
+    display: flex;
+    align-items: center;
+}
+
+.dashed-line {
+    width: 100%;
+    height: 1px;
+    border-top: 2px dashed rgba(255, 255, 255, 0.15);
+}
+
+.notch {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #141721;
+    border-radius: 50%;
+    top: 0;
+}
+.notch-left {
+    left: -9px;
+}
+.notch-right {
+    right: -9px;
+}
+
+.pass-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.pass-barcode-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.barcode-lines {
+    width: 80%;
+    height: 32px;
+    background: repeating-linear-gradient(
+        90deg,
+        #fff,
+        #fff 2px,
+        transparent 2px,
+        transparent 4px,
+        #fff 4px,
+        #fff 7px,
+        transparent 7px,
+        transparent 9px,
+        #fff 9px,
+        #fff 10px,
+        transparent 10px,
+        transparent 14px,
+        #fff 14px,
+        #fff 17px,
+        transparent 17px,
+        transparent 20px
+    );
+    border-radius: 2px;
+    opacity: 0.85;
+}
+
+.barcode-code {
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+}
+
+.pass-entry-note {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.ticket-modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Enhanced Booking Cards in Profile Modal */
+.ticket-location-row {
+    margin-bottom: 8px;
+}
+
+.ticket-theatre-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.ticket-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-bottom: 10px;
+}
+
+.ticket-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ticket-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.ticket-value {
+    font-size: 12px;
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.ticket-value-price {
+    font-size: 13px;
+    color: var(--emerald);
+    font-weight: 700;
+}
+
+.ticket-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 4px;
+    flex-wrap: wrap;
+}
+
+.btn-view-ticket {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(248, 68, 100, 0.12);
+    color: #f84464;
+    border: 1px solid rgba(248, 68, 100, 0.28);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-view-ticket:hover {
+    background: #f84464;
+    color: #fff;
+}

@@ -1038,42 +1038,58 @@ $("#customerForm").onsubmit = async (e) => {
         // Mark seats as reserved
         markSeatsReserved(show.id, state.selectedSeats);
 
-        // Save ticket to local profile history with showId
-        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-        localBookings.unshift({
+        const newBookingRecord = {
             id: result.id || Date.now(),
             showId: show.id,
-            movieTitle: show.movie?.title,
-            theatreName: show.theatre?.name,
+            movieTitle: show.movie?.title || "Movie",
+            theatreName: show.theatre?.name || "Cinema",
+            theatreCity: show.theatre?.city || $("#citySelect")?.value || "Nashik",
+            showtime: formatTime(show.startsAt) || "10:15 AM",
+            showDate: state.selectedDate ? formatDateLabel(state.selectedDate) : "Today",
+            screen: show.screenName || "Audi 2",
+            movieMeta: `${show.movie?.language || 'Hindi'} • ${show.movie?.genre || 'Action'} • ${show.movie?.certificate || 'U/A'}`,
             seatLabel: [...state.selectedSeats],
             totalAmount: total,
-            status: "CONFIRMED"
-        });
-        localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(localBookings));
+            status: "CONFIRMED",
+            ticketCode: `MV-${Math.floor(100000 + Math.random() * 900000)}`
+        };
 
-        showToast(`Success! Your tickets for ${show.movie?.title} are confirmed!`, true);
+        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        localBookings.unshift(newBookingRecord);
+        localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(localBookings));
 
         closeModals();
         loadShows();
         loadBookingHistory();
+        openTicketDetailModal(newBookingRecord);
+        showToast(`🎉 Booking Confirmed! E-Ticket generated for ${show.movie?.title}!`, true);
     } catch (err) {
         console.error("BOOKING FALLBACK:", err);
-        // Fallback save so user booking is NEVER lost
-        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-        localBookings.unshift({
+        const fallbackBooking = {
             id: Date.now(),
-            movieTitle: show.movie?.title,
-            theatreName: show.theatre?.name,
+            showId: show?.id,
+            movieTitle: show?.movie?.title || "Movie",
+            theatreName: show?.theatre?.name || "Cinema",
+            theatreCity: show?.theatre?.city || $("#citySelect")?.value || "Nashik",
+            showtime: formatTime(show?.startsAt) || "10:15 AM",
+            showDate: state.selectedDate ? formatDateLabel(state.selectedDate) : "Today",
+            screen: show?.screenName || "Audi 2",
+            movieMeta: `${show?.movie?.language || 'Hindi'} • ${show?.movie?.genre || 'Action'} • ${show?.movie?.certificate || 'U/A'}`,
             seatLabel: [...state.selectedSeats],
             totalAmount: total,
-            status: "CONFIRMED"
-        });
+            status: "CONFIRMED",
+            ticketCode: `MV-${Math.floor(100000 + Math.random() * 900000)}`
+        };
+
+        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        localBookings.unshift(fallbackBooking);
         localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(localBookings));
 
-        showToast(`Success! Your tickets for ${show.movie?.title} are confirmed!`, true);
         closeModals();
         loadShows();
         loadBookingHistory();
+        openTicketDetailModal(fallbackBooking);
+        showToast(`🎉 Booking Confirmed! E-Ticket generated for ${show?.movie?.title}!`, true);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -1276,6 +1292,44 @@ async function loadBookingHistory() {
     }
 }
 
+let activeBookingsList = [];
+
+function openTicketDetailModal(booking) {
+    if (!booking) return;
+
+    const theatre = booking.theatreName || booking.threatreName || "PVR: City Mall";
+    const city = booking.theatreCity || booking.city || $("#citySelect")?.value || "Nashik";
+    const showtime = booking.showtime || (booking.startsAt ? formatTime(booking.startsAt) : "10:15 AM");
+    const showDate = booking.showDate || (booking.bookedAt ? new Date(booking.bookedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" }) : "Today, 26 Oct");
+    const screen = booking.screen || "Audi 2 (Dolby Atmos)";
+    const seats = Array.isArray(booking.seatLabel) ? booking.seatLabel.join(", ") : (booking.seatLabel || "A1");
+    const ticketCode = booking.ticketCode || `MV-${String(booking.id).slice(-6) || "849201"}`;
+
+    $("#ticketMovieTitle").textContent = booking.movieTitle || "Movie";
+    $("#ticketMovieMeta").textContent = booking.movieMeta || "Hindi, Tamil • 2D • U/A";
+    $("#ticketTheatreName").textContent = theatre;
+    $("#ticketCityName").textContent = city;
+    $("#ticketShowtime").textContent = showtime;
+    $("#ticketShowDate").textContent = showDate;
+    $("#ticketSeats").textContent = seats;
+    $("#ticketScreen").textContent = screen;
+    $("#ticketTotalAmount").textContent = formatMoney(booking.totalAmount);
+    $("#ticketBookingCode").textContent = ticketCode;
+
+    const statusBadge = $("#ticketStatusBadge");
+    if (statusBadge) {
+        statusBadge.textContent = booking.status || "CONFIRMED";
+        statusBadge.className = `status-badge ${booking.status === 'CONFIRMED' ? 'confirmed' : 'cancelled'}`;
+    }
+
+    const modal = $("#ticketDetailModal");
+    if (modal) {
+        modal.hidden = false;
+        modal.style.display = "flex";
+        document.body.style.overflow = "hidden";
+    }
+}
+
 function renderBookingCards(list) {
     const historyContainer = $("#bookingHistory");
     if (!list || !list.length) {
@@ -1283,9 +1337,16 @@ function renderBookingCards(list) {
         return;
     }
 
-    historyContainer.innerHTML = list.map(b => {
+    activeBookingsList = list;
+
+    historyContainer.innerHTML = list.map((b, idx) => {
         const seats = (b.seatLabel || []).join(", ");
         const isConfirmed = b.status === "CONFIRMED";
+        const theatre = b.theatreName || b.threatreName || "PVR: City Mall";
+        const city = b.theatreCity || b.city || $("#citySelect")?.value || "Nashik";
+        const showtime = b.showtime || (b.startsAt ? formatTime(b.startsAt) : "10:15 AM");
+        const showDate = b.showDate || (b.bookedAt ? new Date(b.bookedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" }) : "Today, 26 Oct");
+        const screen = b.screen || "Audi 2";
 
         return `
             <div class="booking-ticket-card">
@@ -1295,19 +1356,51 @@ function renderBookingCards(list) {
                         ${escapeHtml(b.status)}
                     </span>
                 </div>
-                <p class="ticket-theatre">${escapeHtml(b.threatreName || b.theatreName || "Theatre")}</p>
-                <div class="ticket-meta">
-                    <span>Seats: <strong>${escapeHtml(seats)}</strong></span>
-                    <strong>${formatMoney(b.totalAmount)}</strong>
+                <div class="ticket-location-row">
+                    <span class="ticket-theatre-text">📍 ${escapeHtml(theatre)}${city ? ', ' + escapeHtml(city) : ''}</span>
                 </div>
-                ${isConfirmed ? `
-                    <button class="btn-cancel-ticket" data-booking-id="${b.id}" type="button">
-                        Cancel Booking & Release Seats
+                <div class="ticket-info-grid">
+                    <div class="ticket-info-item">
+                        <span class="ticket-label">SHOWTIME</span>
+                        <span class="ticket-value">🕒 ${escapeHtml(showtime)}</span>
+                    </div>
+                    <div class="ticket-info-item">
+                        <span class="ticket-label">DATE</span>
+                        <span class="ticket-value">📅 ${escapeHtml(showDate)}</span>
+                    </div>
+                    <div class="ticket-info-item">
+                        <span class="ticket-label">SEATS</span>
+                        <span class="ticket-value">🎟️ ${escapeHtml(seats)} <small style="color:var(--text-muted);">(${escapeHtml(screen)})</small></span>
+                    </div>
+                    <div class="ticket-info-item">
+                        <span class="ticket-label">TOTAL PAID</span>
+                        <span class="ticket-value-price">${formatMoney(b.totalAmount)}</span>
+                    </div>
+                </div>
+                <div class="ticket-card-actions">
+                    <button class="btn-view-ticket" data-booking-index="${idx}" type="button">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0"></path><path d="M12 15h0"></path></svg>
+                        View Ticket Details
                     </button>
-                ` : ""}
+                    ${isConfirmed ? `
+                        <button class="btn-cancel-ticket" data-booking-id="${b.id}" type="button">
+                            Cancel Booking & Release Seats
+                        </button>
+                    ` : ""}
+                </div>
             </div>
         `;
     }).join("");
+
+    // View Ticket Details click bindings
+    document.querySelectorAll(".btn-view-ticket").forEach(btn => {
+        btn.onclick = () => {
+            const idx = Number(btn.dataset.bookingIndex);
+            if (activeBookingsList[idx]) {
+                openTicketDetailModal(activeBookingsList[idx]);
+            }
+        };
+    });
 
     document.querySelectorAll(".btn-cancel-ticket").forEach(btn => {
         btn.onclick = async () => {
@@ -1344,7 +1437,7 @@ function renderBookingCards(list) {
 // ======================================================
 
 function closeModals() {
-    const modals = [$("#bookingModal"), $("#customerModal"), $("#accountModal"), $("#movieDetailModal")];
+    const modals = [$("#bookingModal"), $("#customerModal"), $("#accountModal"), $("#movieDetailModal"), $("#ticketDetailModal")];
     modals.forEach(m => {
         if (m) {
             m.hidden = true;
@@ -1458,3 +1551,11 @@ renderHero(false);
 startHeroAutoRotate();
 loadMovies();
 loadShows();
+
+
+$("#closeTicketButton") && ($("#closeTicketButton").onclick = closeModals);
+$("#closeTicketDoneBtn") && ($("#closeTicketDoneBtn").onclick = closeModals);
+$("#viewAllBookingsBtn") && ($("#viewAllBookingsBtn").onclick = () => {
+    closeModals();
+    openAccountModal();
+});
