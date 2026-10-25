@@ -290,9 +290,18 @@ button {
     height: 100%;
     object-fit: cover;
     object-position: center 25%;
-    transform: scale(1.05);
+    transform: scale(1.03);
     filter: brightness(0.7) contrast(1.1);
-    transition: transform 1.2s cubic-bezier(0.1, 1, 0.1, 1);
+    transition: opacity 0.65s cubic-bezier(0.25, 1, 0.5, 1), 
+                transform 0.65s cubic-bezier(0.25, 1, 0.5, 1),
+                filter 0.65s ease;
+    will-change: opacity, transform, filter;
+}
+
+.hero-backdrop.crossfade-out {
+    opacity: 0.12;
+    transform: scale(1.08);
+    filter: brightness(0.35) blur(6px);
 }
 
 .hero-gradient-overlay {
@@ -323,6 +332,13 @@ button {
     max-width: 650px;
     z-index: 2;
     animation: fadeInRise 0.8s ease-out;
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+
+.hero-content.hero-content-shift {
+    opacity: 0.15;
+    transform: translateY(10px);
 }
 
 .hero-badge-row {
@@ -1670,6 +1686,13 @@ button {
         gap: 16px;
         margin-bottom: 24px;
     }
+    .filter-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        overflow-x: visible;
+        width: 100%;
+    }
     .section-title {
         font-size: 24px;
     }
@@ -1802,12 +1825,17 @@ button {
         font-size: 20px;
     }
     .filter-pills {
-        gap: 6px;
-        padding-bottom: 4px;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        overflow-x: visible !important;
+        padding-bottom: 0 !important;
+        width: 100% !important;
     }
     .filter-pill {
-        padding: 5px 12px;
+        padding: 6px 12px;
         font-size: 11px;
+        flex-shrink: 0;
     }
     .movie-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1871,16 +1899,37 @@ button {
     .slot-btn .slot-price {
         font-size: 9.5px;
     }
-    /* Mobile Sheet Modals */
+    /* Mobile Centered Modals (Clean, completely in view with zero scrolling) */
     .modal-overlay {
-        padding: 0;
-        align-items: flex-end; /* Native bottom sheet modal on mobile */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 16px !important;
+        box-sizing: border-box;
     }
     .modal-card {
-        padding: 20px 14px;
-        max-height: 90vh;
-        border-radius: 20px 20px 0 0;
-        overflow-y: auto;
+        margin: auto !important;
+        max-height: 88dvh !important;
+        max-height: 88vh;
+        width: 100% !important;
+        max-width: 380px !important;
+        border-radius: 18px !important;
+        padding: 24px 18px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    .booking-modal-card {
+        max-width: 420px !important;
+        padding: 18px 12px !important;
+    }
+    .account-modal-card {
+        padding: 24px 18px !important;
+    }
+    .auth-toggle {
+        margin-bottom: 18px !important;
+    }
+    .auth-form {
+        gap: 14px !important;
     }
     .modal-head {
         margin-bottom: 14px;

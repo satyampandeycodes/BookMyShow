@@ -97,7 +97,7 @@ const rawSavedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") ||
 if (rawSavedProfile) {
     if (rawSavedProfile.phone) rawSavedProfile.phone = maskPhone(rawSavedProfile.phone);
     if (rawSavedProfile.name && rawSavedProfile.name.toLowerCase().includes("satyam")) rawSavedProfile.name = "Cinema Fan";
-    if (rawSavedProfile.email && rawSavedProfile.email.toLowerCase().includes("satyam")) rawSavedProfile.email = "cinema.fan@example.com";
+    if (rawSavedProfile.email && rawSavedProfile.email.toLowerCase().includes("satyam")) rawSavedProfile.email = "satyamexample@gmail.com";
     try { localStorage.setItem("bookmyshow_profile", JSON.stringify(rawSavedProfile)); } catch {}
 }
 const savedProfile = rawSavedProfile;
@@ -263,7 +263,7 @@ function generateDynamicShows(cityName, dateStr) {
 // HERO SECTION WITH AUTO-ROTATION (Every 5.5 seconds)
 // ======================================================
 
-const HERO_ROTATION_INTERVAL = 4500; // 4.5 seconds rotation // 5.5 seconds rotation
+const HERO_ROTATION_INTERVAL = 4800; // 4.8 seconds rotation
 
 function getHeroMovies() {
     if (state.movies && state.movies.length > 0) {
@@ -358,13 +358,20 @@ function renderHero(isAuto = false) {
 
     let movie = activeMovies[state.heroIndex];
     const heroImage = $("#heroImage");
+    const heroContent = $(".hero-content");
 
-    if (isAuto && heroImage) {
+    if (heroImage) {
+        // Smooth cinematic crossfade & zoom effect
         heroImage.classList.add("crossfade-out");
+        if (heroContent) heroContent.classList.add("hero-content-shift");
+
         setTimeout(() => {
             updateHeroContent(movie);
             heroImage.classList.remove("crossfade-out");
-        }, 250);
+            if (heroContent) {
+                setTimeout(() => heroContent.classList.remove("hero-content-shift"), 40);
+            }
+        }, 320);
     } else {
         updateHeroContent(movie);
     }
@@ -645,7 +652,7 @@ function openMovieDetailModal(movieId) {
     }
 
     modal.hidden = false;
-    modal.style.display = "grid";
+    modal.style.display = "flex";
     document.body.style.overflow = "hidden";
 }
 
@@ -816,7 +823,7 @@ function openSeatModal(showId) {
     renderSeatMap();
 
     $("#bookingModal").hidden = false;
-    $("#bookingModal").style.display = "grid";
+    $("#bookingModal").style.display = "flex";
     document.body.style.overflow = "hidden";
 }
 
@@ -922,7 +929,7 @@ function openConfirmationModal() {
     $("#bookingModal").style.display = "none";
 
     $("#customerModal").hidden = false;
-    $("#customerModal").style.display = "grid";
+    $("#customerModal").style.display = "flex";
 }
 
 $("#customerForm").onsubmit = async (e) => {
@@ -1071,7 +1078,7 @@ function setProfile(profile) {
     if (profile) {
         if (profile.phone) profile.phone = maskPhone(profile.phone);
         if (profile.name && profile.name.toLowerCase().includes("satyam")) profile.name = "Cinema Fan";
-        if (profile.email && profile.email.toLowerCase().includes("satyam")) profile.email = "cinema.fan@example.com";
+        if (profile.email && profile.email.toLowerCase().includes("satyam")) profile.email = "satyamexample@gmail.com";
     }
     state.profile = profile;
     localStorage.setItem("bookmyshow_profile", JSON.stringify(profile));
@@ -1087,7 +1094,7 @@ function setProfile(profile) {
 
 function openAccountModal() {
     $("#accountModal").hidden = false;
-    $("#accountModal").style.display = "grid";
+    $("#accountModal").style.display = "flex";
     document.body.style.overflow = "hidden";
     updateProfileUI();
 }
@@ -1112,7 +1119,7 @@ $("#profileLoginForm").onsubmit = async (e) => {
         const profile = {
             id: 1,
             name: identifier.includes("@") ? identifier.split("@")[0] : "Cinema Fan",
-            email: identifier.includes("@") ? identifier : "user@example.com",
+            email: identifier.includes("@") ? identifier : "satyamexample@gmail.com",
             phone: identifier.includes("@") ? "98XXXXXXXX" : maskPhone(identifier)
         };
         setProfile(profile);
