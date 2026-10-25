@@ -1133,6 +1133,7 @@ $("#customerForm").onsubmit = async (e) => {
 
         const newBookingRecord = {
             id: result.id || Date.now(),
+            bookedAt: result.bookedAt || new Date().toISOString(),
             showId: show.id,
             movieTitle: show.movie?.title || "Movie",
             theatreName: show.theatre?.name || "Cinema",
@@ -1160,6 +1161,7 @@ $("#customerForm").onsubmit = async (e) => {
         console.error("BOOKING FALLBACK:", err);
         const fallbackBooking = {
             id: Date.now(),
+            bookedAt: new Date().toISOString(),
             showId: show?.id,
             movieTitle: show?.movie?.title || "Movie",
             theatreName: show?.theatre?.name || "Cinema",
@@ -1398,6 +1400,35 @@ async function loadBookingHistory() {
 
 let activeBookingsList = [];
 
+function formatBookingDate(val) {
+    if (!val) return "Today, 26 Oct";
+    if (Array.isArray(val)) {
+        const [y, m, d] = val;
+        return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" });
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? "Today, 26 Oct" : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" });
+}
+
+function getBookingTimestamp(b) {
+    if (!b) return 0;
+    if (b.bookedAt) {
+        if (Array.isArray(b.bookedAt)) {
+            const [y, m, d, hr = 0, min = 0, sec = 0] = b.bookedAt;
+            return new Date(y, m - 1, d, hr, min, sec).getTime();
+        }
+        const t = new Date(b.bookedAt).getTime();
+        if (!isNaN(t) && t > 0) return t;
+    }
+    if (b.createdAt) {
+        const t = new Date(b.createdAt).getTime();
+        if (!isNaN(t) && t > 0) return t;
+    }
+    const num = Number(b.id);
+    if (!isNaN(num) && num > 0) return num;
+    return 0;
+}
+
 function openTicketDetailModal(booking) {
     if (!booking) return;
 
@@ -1414,7 +1445,7 @@ function openTicketDetailModal(booking) {
     const theatre = booking.theatreName || booking.threatreName || "PVR: City Mall";
     const city = booking.theatreCity || booking.city || $("#citySelect")?.value || "Nashik";
     const showtime = booking.showtime || (booking.startsAt ? formatTime(booking.startsAt) : "10:15 AM");
-    const showDate = booking.showDate || (booking.bookedAt ? new Date(booking.bookedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" }) : "Today, 26 Oct");
+    const showDate = booking.showDate || formatBookingDate(booking.bookedAt);
     const screen = booking.screen || "Audi 2 (Dolby Atmos)";
     const seats = Array.isArray(booking.seatLabel) ? booking.seatLabel.join(", ") : (booking.seatLabel || "A1");
     const ticketCode = booking.ticketCode || `MV-${String(booking.id).slice(-6) || "849201"}`;
@@ -1452,15 +1483,23 @@ function renderBookingCards(list) {
         return;
     }
 
-    activeBookingsList = list;
+    // Always keep the latest (newest) booking at the very top of My Bookings
+    const sortedList = [...list].sort((a, b) => {
+        const timeA = getBookingTimestamp(a);
+        const timeB = getBookingTimestamp(b);
+        if (timeB !== timeA) return timeB - timeA;
+        return (Number(b.id) || 0) - (Number(a.id) || 0); // Newest first
+    });
 
-    historyContainer.innerHTML = list.map((b, idx) => {
+    activeBookingsList = sortedList;
+
+    historyContainer.innerHTML = sortedList.map((b, idx) => {
         const seats = (b.seatLabel || []).join(", ");
         const isConfirmed = b.status === "CONFIRMED";
         const theatre = b.theatreName || b.threatreName || "PVR: City Mall";
         const city = b.theatreCity || b.city || $("#citySelect")?.value || "Nashik";
         const showtime = b.showtime || (b.startsAt ? formatTime(b.startsAt) : "10:15 AM");
-        const showDate = b.showDate || (b.bookedAt ? new Date(b.bookedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" }) : "Today, 26 Oct");
+        const showDate = b.showDate || formatBookingDate(b.bookedAt);
         const screen = b.screen || "Audi 2 (Dolby Atmos)";
 
         return `
@@ -1522,6 +1561,12 @@ function renderBookingCards(list) {
         btn.onclick = async (e) => {
             e.preventDefault();
             e.stopPropagation();
+
+            // Ask confirmation: If YES -> cancel; if NO -> cancel nothing, stay on My Bookings
+            const confirmCancel = window.confirm("Are you sure you want to cancel this booking?");
+            if (!confirmCancel) {
+                return; // User clicked NO: No cancellation, stay right on My Bookings
+            }
 
             const bookingId = String(btn.dataset.bookingId);
             btn.disabled = true;
