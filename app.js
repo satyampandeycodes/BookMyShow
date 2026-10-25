@@ -153,6 +153,18 @@ function dateKey(date) {
     return `${year}-${month}-${day}`;
 }
 
+
+function formatDateLabel(dateStr) {
+    if (!dateStr) return "Today";
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    } catch (e) {
+        return String(dateStr);
+    }
+}
+
 function formatTime(isoString) {
     if (!isoString) return "";
     try {
@@ -1297,6 +1309,16 @@ let activeBookingsList = [];
 function openTicketDetailModal(booking) {
     if (!booking) return;
 
+    // If profile modal is open, temporarily hide it and remember to return to it
+    const accountModal = $("#accountModal");
+    const wasAccountModalOpen = accountModal && !accountModal.hidden && accountModal.style.display !== "none";
+    state.returnToAccountModal = wasAccountModalOpen;
+    if (wasAccountModalOpen) {
+        accountModal.hidden = true;
+        accountModal.setAttribute("hidden", "");
+        accountModal.style.display = "none";
+    }
+
     const theatre = booking.theatreName || booking.threatreName || "PVR: City Mall";
     const city = booking.theatreCity || booking.city || $("#citySelect")?.value || "Nashik";
     const showtime = booking.showtime || (booking.startsAt ? formatTime(booking.startsAt) : "10:15 AM");
@@ -1325,6 +1347,7 @@ function openTicketDetailModal(booking) {
     const modal = $("#ticketDetailModal");
     if (modal) {
         modal.hidden = false;
+        modal.removeAttribute("hidden");
         modal.style.display = "flex";
         document.body.style.overflow = "hidden";
     }
@@ -1347,7 +1370,6 @@ function renderBookingCards(list) {
         const showtime = b.showtime || (b.startsAt ? formatTime(b.startsAt) : "10:15 AM");
         const showDate = b.showDate || (b.bookedAt ? new Date(b.bookedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", weekday: "short" }) : "Today, 26 Oct");
         const screen = b.screen || "Audi 2 (Dolby Atmos)";
-        const ticketCode = b.ticketCode || `MV-${String(b.id).slice(-6) || "849201"}`;
 
         return `
             <div class="booking-ticket-card" id="bookingCard-${idx}">
@@ -1379,47 +1401,10 @@ function renderBookingCards(list) {
                     </div>
                 </div>
 
-                <!-- Instant Expandable Detailed Ticket Info -->
-                <div class="ticket-expandable-details" id="ticketDetails-${idx}">
-                    <div class="ticket-detail-table">
-                        <div class="detail-row">
-                            <span class="detail-key">Cinema Hall:</span>
-                            <span class="detail-val">${escapeHtml(theatre)} (${escapeHtml(screen)})</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-key">City / Location:</span>
-                            <span class="detail-val">${escapeHtml(city)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-key">Show Timing:</span>
-                            <span class="detail-val">🕒 ${escapeHtml(showtime)} • 📅 ${escapeHtml(showDate)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-key">Booked Seats:</span>
-                            <span class="detail-val" style="color:#f84464; font-weight:700;">${escapeHtml(seats)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-key">Ticket Reference:</span>
-                            <span class="detail-val" style="font-family:monospace; letter-spacing:1px; color:#38bdf8;">#${escapeHtml(ticketCode)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-key">Payment Status:</span>
-                            <span class="detail-val" style="color:#10b981; font-weight:700;">Verified (${formatMoney(b.totalAmount)})</span>
-                        </div>
-                    </div>
-                    <div class="pass-footer" style="padding: 6px 0;">
-                        <div class="barcode-lines" style="width: 100%; height: 26px;"></div>
-                        <span class="barcode-code">${escapeHtml(ticketCode)}</span>
-                    </div>
-                    <button class="btn-open-pass" data-booking-index="${idx}" type="button">
-                        🎫 Open Full Screen Pass
-                    </button>
-                </div>
-
                 <div class="ticket-card-actions">
                     <button class="btn-view-ticket" data-booking-index="${idx}" type="button">
-                        <span class="ticket-btn-icon">▼</span>
-                        <span class="ticket-btn-text">View Ticket Details</span>
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0"></path><path d="M12 15h0"></path></svg>
+                        View E-Ticket Details
                     </button>
                     ${isConfirmed ? `
                         <button class="btn-cancel-ticket" data-booking-id="${b.id}" type="button">
@@ -1431,25 +1416,8 @@ function renderBookingCards(list) {
         `;
     }).join("");
 
-    // Toggle Expandable Details
+    // Directly open digital E-Ticket on clicking View E-Ticket Details
     document.querySelectorAll(".btn-view-ticket").forEach(btn => {
-        btn.onclick = () => {
-            const idx = Number(btn.dataset.bookingIndex);
-            const detailBox = document.getElementById(`ticketDetails-${idx}`);
-            const btnText = btn.querySelector(".ticket-btn-text");
-            const btnIcon = btn.querySelector(".ticket-btn-icon");
-
-            if (detailBox) {
-                const isOpen = detailBox.classList.contains("open");
-                detailBox.classList.toggle("open", !isOpen);
-                if (btnText) btnText.textContent = isOpen ? "View Ticket Details" : "Hide Ticket Details";
-                if (btnIcon) btnIcon.textContent = isOpen ? "▼" : "▲";
-            }
-        };
-    });
-
-    // Open Full Screen Pass Button click
-    document.querySelectorAll(".btn-open-pass").forEach(btn => {
         btn.onclick = () => {
             const idx = Number(btn.dataset.bookingIndex);
             if (activeBookingsList[idx]) {
@@ -1613,7 +1581,14 @@ function closeTicketModalOnly() {
     const modal = $("#ticketDetailModal");
     if (modal) {
         modal.hidden = true;
+        modal.setAttribute("hidden", "");
         modal.style.display = "none";
+    }
+    if (state.returnToAccountModal) {
+        state.returnToAccountModal = false;
+        openAccountModal();
+    } else {
+        document.body.style.overflow = "";
     }
 }
 $("#closeTicketButton") && ($("#closeTicketButton").onclick = closeTicketModalOnly);
