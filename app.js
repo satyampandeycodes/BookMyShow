@@ -1363,24 +1363,47 @@ $("#logoutButton").onclick = () => {
 // BOOKING HISTORY & CANCELLATION
 // ======================================================
 
+let bookingHistoryReqSeq = 0;
+let isCancellingInProgress = false;
+
+function getCancelledIds() {
+    if (!state.profile?.id) return new Set();
+    try {
+        const arr = JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile.id}`) || "[]");
+        return new Set(arr.map(String));
+    } catch (e) {
+        return new Set();
+    }
+}
+
 async function loadBookingHistory() {
     if (!state.profile) return;
     const historyContainer = $("#bookingHistory");
     const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-    const cancelledIds = new Set(JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile.id}`) || "[]"));
+    const cancelledIds = getCancelledIds();
 
     // 1. Instant 0ms render from local bookings with cancelled IDs applied
     const initialList = localBookings.map(b => cancelledIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
     renderBookingCards(initialList);
 
+    // Track request sequence to prevent background race condition from resetting cancelled status
+    const reqSeq = ++bookingHistoryReqSeq;
+
     // 2. Fetch backend bookings and deduplicate seamlessly
     try {
         const backendBookings = await fetchJson(`/profiles/${state.profile.id}/bookings`);
+        
+        // Discard response if a cancellation or another fetch happened in the meantime!
+        if (reqSeq !== bookingHistoryReqSeq) {
+            return;
+        }
+
         const list = Array.isArray(backendBookings) ? backendBookings : [];
+        const freshCancelledIds = getCancelledIds();
 
         const combined = [];
         const processBooking = (b) => {
-            const isCancelled = b.status === "CANCELLED" || cancelledIds.has(String(b.id));
+            const isCancelled = b.status === "CANCELLED" || freshCancelledIds.has(String(b.id));
             const status = isCancelled ? "CANCELLED" : (b.status || "CONFIRMED");
             const cleanB = { ...b, status };
 
@@ -1397,11 +1420,11 @@ async function loadBookingHistory() {
                 });
 
                 if (existingIdx !== -1) {
-                    // Merge duplicate entry
+                    // Merge duplicate entry: if either is cancelled, the merged booking is cancelled!
                     if (status === "CANCELLED" || combined[existingIdx].status === "CANCELLED") {
                         combined[existingIdx].status = "CANCELLED";
-                        cancelledIds.add(String(b.id));
-                        cancelledIds.add(String(combined[existingIdx].id));
+                        freshCancelledIds.add(String(b.id));
+                        freshCancelledIds.add(String(combined[existingIdx].id));
                     }
                     if (Number(b.id) < 1000000 && Number(combined[existingIdx].id) > 1000000) {
                         combined[existingIdx].id = b.id;
@@ -1416,10 +1439,12 @@ async function loadBookingHistory() {
         list.forEach(processBooking);
         localBookings.forEach(processBooking);
 
-        localStorage.setItem(`bms_cancelled_ids_${state.profile.id}`, JSON.stringify(Array.from(cancelledIds)));
+        localStorage.setItem(`bms_cancelled_ids_${state.profile.id}`, JSON.stringify(Array.from(freshCancelledIds)));
         renderBookingCards(combined);
     } catch (err) {
-        renderBookingCards(initialList);
+        if (reqSeq === bookingHistoryReqSeq) {
+            renderBookingCards(initialList);
+        }
     }
 }
 
@@ -1512,108 +1537,119 @@ function openTicketDetailModal(booking) {
 // Unified cancellation engine: handles 1-click execution for all matching seats/records
 async function cancelBookingById(bookingId, triggerBtn = null) {
     if (!bookingId || !state.profile?.id) return false;
+    if (isCancellingInProgress) return false;
 
-    // Ask confirmation: If YES -> cancel; if NO -> cancel nothing, stay right on My Bookings
-    const confirmCancel = window.confirm("Are you sure you want to cancel this booking?");
-    if (!confirmCancel) {
+    isCancellingInProgress = true;
+
+    try {
+        // Ask confirmation: If YES -> cancel; if NO -> cancel nothing, stay right on My Bookings
+        const confirmCancel = window.confirm("Are you sure you want to cancel this booking?");
+        if (!confirmCancel) {
+            if (triggerBtn) {
+                triggerBtn.disabled = false;
+            }
+            return false;
+        }
+
+        // IMMEDIATELY INVALIDATE any in-flight background booking history queries!
+        bookingHistoryReqSeq++;
+
         if (triggerBtn) {
-            triggerBtn.disabled = false;
-            triggerBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span>Cancel Ticket</span>`;
-        }
-        return false;
-    }
-
-    if (triggerBtn) {
-        triggerBtn.disabled = true;
-        triggerBtn.textContent = "Cancelling...";
-    }
-
-    const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-    const targetBooking = (activeBookingsList || []).find(b => String(b.id) === String(bookingId)) ||
-                          localBookings.find(b => String(b.id) === String(bookingId)) ||
-                          (state.currentModalBooking && String(state.currentModalBooking.id) === String(bookingId) ? state.currentModalBooking : null);
-
-    const matchingIds = new Set([String(bookingId)]);
-
-    // 1. Release seats immediately
-    if (targetBooking) {
-        const showId = targetBooking.showId || targetBooking.ShowId || targetBooking.show?.id || state.selectedShow?.id;
-        const seats = parseSeatLabels(targetBooking.seatLabel);
-        if (showId && seats.length > 0) {
-            releaseSeats(showId, seats);
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = "Cancelling...";
         }
 
-        // Cancel any duplicate records for the exact same seats
-        const targetMovie = normalizeStr(targetBooking.movieTitle);
-        const targetSeatsSet = new Set(seats);
+        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        const targetBooking = (activeBookingsList || []).find(b => String(b.id) === String(bookingId)) ||
+                              localBookings.find(b => String(b.id) === String(bookingId)) ||
+                              (state.currentModalBooking && String(state.currentModalBooking.id) === String(bookingId) ? state.currentModalBooking : null);
 
-        (activeBookingsList || []).forEach(b => {
-            const bMovie = normalizeStr(b.movieTitle);
-            const bSeats = parseSeatLabels(b.seatLabel);
-            const sameMovie = targetMovie && bMovie && targetMovie === bMovie;
-            const sameSeats = bSeats.length > 0 && bSeats.every(s => targetSeatsSet.has(s)) && targetSeatsSet.size === bSeats.length;
-            if (sameMovie && sameSeats) {
-                matchingIds.add(String(b.id));
+        const matchingIds = new Set([String(bookingId)]);
+
+        // 1. Release seats immediately
+        if (targetBooking) {
+            const showId = targetBooking.showId || targetBooking.ShowId || targetBooking.show?.id || state.selectedShow?.id;
+            const seats = parseSeatLabels(targetBooking.seatLabel);
+            if (showId && seats.length > 0) {
+                releaseSeats(showId, seats);
             }
+
+            // Cancel any duplicate records for the exact same seats
+            const targetMovie = normalizeStr(targetBooking.movieTitle);
+            const targetSeatsSet = new Set(seats);
+
+            (activeBookingsList || []).forEach(b => {
+                const bMovie = normalizeStr(b.movieTitle);
+                const bSeats = parseSeatLabels(b.seatLabel);
+                const sameMovie = targetMovie && bMovie && targetMovie === bMovie;
+                const sameSeats = bSeats.length > 0 && bSeats.every(s => targetSeatsSet.has(s)) && targetSeatsSet.size === bSeats.length;
+                if (sameMovie && sameSeats) {
+                    matchingIds.add(String(b.id));
+                }
+            });
+
+            localBookings.forEach(b => {
+                const bMovie = normalizeStr(b.movieTitle);
+                const bSeats = parseSeatLabels(b.seatLabel);
+                const sameMovie = targetMovie && bMovie && targetMovie === bMovie;
+                const sameSeats = bSeats.length > 0 && bSeats.every(s => targetSeatsSet.has(s)) && targetSeatsSet.size === bSeats.length;
+                if (sameMovie && sameSeats) {
+                    matchingIds.add(String(b.id));
+                }
+            });
+        }
+
+        // 2. Persist cancelled IDs in localStorage so backend never reverts them
+        const cancelledIds = getCancelledIds();
+        matchingIds.forEach(id => cancelledIds.add(String(id)));
+        localStorage.setItem(`bms_cancelled_ids_${state.profile.id}`, JSON.stringify(Array.from(cancelledIds)));
+
+        // 3. Update localBookings storage
+        const updatedLocal = localBookings.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
+        localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(updatedLocal));
+
+        // 4. Instantly update activeBookingsList and re-render cards in 0ms (1-click guaranteed!)
+        if (Array.isArray(activeBookingsList)) {
+            activeBookingsList = activeBookingsList.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
+            renderBookingCards(activeBookingsList);
+        }
+
+        // 5. Update E-Ticket modal if open
+        if (state.currentModalBooking && matchingIds.has(String(state.currentModalBooking.id))) {
+            state.currentModalBooking.status = "CANCELLED";
+            const statusBadge = $("#ticketStatusBadge");
+            if (statusBadge) {
+                statusBadge.textContent = "CANCELLED";
+                statusBadge.className = "status-badge cancelled";
+            }
+            const modalCancelBtn = $("#modalCancelTicketBtn");
+            if (modalCancelBtn) modalCancelBtn.style.display = "none";
+        }
+
+        showToast("Booking cancelled & seats released immediately!", true);
+
+        // 6. Refresh shows & seat map cache so seats immediately turn green in 0ms
+        if (typeof showsCache !== "undefined") {
+            for (let k in showsCache) delete showsCache[k];
+        }
+        loadShows();
+
+        // 7. Send backend cancellation asynchronously in the background
+        matchingIds.forEach(id => {
+            try {
+                fetchJson(`/bookings/${id}/cancel`, {
+                    method: "POST",
+                    body: JSON.stringify(state.profile.id)
+                }).catch(() => {});
+            } catch (err) {}
         });
 
-        localBookings.forEach(b => {
-            const bMovie = normalizeStr(b.movieTitle);
-            const bSeats = parseSeatLabels(b.seatLabel);
-            const sameMovie = targetMovie && bMovie && targetMovie === bMovie;
-            const sameSeats = bSeats.length > 0 && bSeats.every(s => targetSeatsSet.has(s)) && targetSeatsSet.size === bSeats.length;
-            if (sameMovie && sameSeats) {
-                matchingIds.add(String(b.id));
-            }
-        });
+        return true;
+    } finally {
+        setTimeout(() => {
+            isCancellingInProgress = false;
+        }, 400);
     }
-
-    // 2. Persist cancelled IDs in localStorage so backend never reverts them
-    const cancelledIds = new Set(JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile.id}`) || "[]"));
-    matchingIds.forEach(id => cancelledIds.add(String(id)));
-    localStorage.setItem(`bms_cancelled_ids_${state.profile.id}`, JSON.stringify(Array.from(cancelledIds)));
-
-    // 3. Update localBookings storage
-    const updatedLocal = localBookings.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
-    localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(updatedLocal));
-
-    // 4. Instantly update activeBookingsList and re-render cards in 0ms (1-click guaranteed!)
-    if (Array.isArray(activeBookingsList)) {
-        activeBookingsList = activeBookingsList.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
-        renderBookingCards(activeBookingsList);
-    }
-
-    // 5. Update E-Ticket modal if open
-    if (state.currentModalBooking && matchingIds.has(String(state.currentModalBooking.id))) {
-        state.currentModalBooking.status = "CANCELLED";
-        const statusBadge = $("#ticketStatusBadge");
-        if (statusBadge) {
-            statusBadge.textContent = "CANCELLED";
-            statusBadge.className = "status-badge cancelled";
-        }
-        const modalCancelBtn = $("#modalCancelTicketBtn");
-        if (modalCancelBtn) modalCancelBtn.style.display = "none";
-    }
-
-    showToast("Booking cancelled & seats released immediately!", true);
-
-    // 6. Refresh shows & seat map cache so seats immediately turn green in 0ms
-    if (typeof showsCache !== "undefined") {
-        for (let k in showsCache) delete showsCache[k];
-    }
-    loadShows();
-
-    // 7. Send backend cancellation asynchronously in the background
-    matchingIds.forEach(id => {
-        try {
-            fetchJson(`/bookings/${id}/cancel`, {
-                method: "POST",
-                body: JSON.stringify(state.profile.id)
-            }).catch(() => {});
-        } catch (err) {}
-    });
-
-    return true;
 }
 
 function renderBookingCards(list) {
@@ -1695,21 +1731,13 @@ function renderBookingCards(list) {
 
     // Open digital E-Ticket on clicking View E-Ticket Details
     document.querySelectorAll(".btn-view-ticket").forEach(btn => {
-        btn.onclick = () => {
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             const idx = Number(btn.dataset.bookingIndex);
             if (activeBookingsList[idx]) {
                 openTicketDetailModal(activeBookingsList[idx]);
             }
-        };
-    });
-
-    // Directly bind cancel button
-    document.querySelectorAll(".btn-cancel-ticket").forEach(btn => {
-        btn.onclick = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const bookingId = String(btn.dataset.bookingId);
-            cancelBookingById(bookingId, btn);
         };
     });
 }

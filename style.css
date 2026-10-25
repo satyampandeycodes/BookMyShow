@@ -2460,3 +2460,10 @@ button {
     transform: translateY(-1px);
     box-shadow: 0 4px 14px rgba(248, 68, 100, 0.4);
 }
+
+.btn-cancel-ticket *,
+.btn-cancel-centered *,
+.btn-cancel-modal *,
+.btn-view-ticket * {
+    pointer-events: none;
+}
