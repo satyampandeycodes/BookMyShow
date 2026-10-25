@@ -1577,8 +1577,13 @@ loadMovies();
 loadShows();
 
 
+
+// ======================================================
+// BULLETPROOF TICKET MODAL HANDLERS (Direct & Delegated)
+// ======================================================
+
 function closeTicketModalOnly() {
-    const modal = $("#ticketDetailModal");
+    const modal = document.getElementById("ticketDetailModal");
     if (modal) {
         modal.hidden = true;
         modal.setAttribute("hidden", "");
@@ -1591,9 +1596,43 @@ function closeTicketModalOnly() {
         document.body.style.overflow = "";
     }
 }
-$("#closeTicketButton") && ($("#closeTicketButton").onclick = closeTicketModalOnly);
-$("#closeTicketDoneBtn") && ($("#closeTicketDoneBtn").onclick = closeTicketModalOnly);
-$("#viewAllBookingsBtn") && ($("#viewAllBookingsBtn").onclick = () => {
-    closeModals();
-    openAccountModal();
+
+// Global click delegation guarantees every button click always fires
+document.addEventListener("click", (e) => {
+    const target = e.target;
+    
+    // Close / Done button
+    if (target.closest("#closeTicketButton") || target.closest("#closeTicketDoneBtn")) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTicketModalOnly();
+        return;
+    }
+    
+    // My Bookings button
+    if (target.closest("#viewAllBookingsBtn")) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTicketModalOnly();
+        state.returnToAccountModal = false;
+        openAccountModal();
+        return;
+    }
+    
+    // Clicking on modal background overlay to close
+    if (target.id === "ticketDetailModal") {
+        closeTicketModalOnly();
+        return;
+    }
 });
+
+// Escape key to close modal
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        const modal = document.getElementById("ticketDetailModal");
+        if (modal && !modal.hidden && modal.style.display !== "none") {
+            closeTicketModalOnly();
+        }
+    }
+});
+
