@@ -285,7 +285,7 @@ function generateDynamicShows(cityName, dateStr) {
 // HERO SECTION WITH AUTO-ROTATION (Every 5.5 seconds)
 // ======================================================
 
-const HERO_ROTATION_INTERVAL = 4000; // 4.8 seconds rotation
+const HERO_ROTATION_INTERVAL = 4800; // Increased by +0.8s for smooth cinematic pacing
 
 function getHeroMovies() {
     if (state.movies && state.movies.length > 0) {
@@ -929,6 +929,7 @@ function openSeatModal(showId) {
 
 function renderSeatMap() {
     const show = state.selectedShow;
+    if (!show) return;
     const total = Number(show.totalSeats || 100);
     const seatLabels = [];
 
@@ -938,9 +939,31 @@ function renderSeatMap() {
         seatLabels.push(`${row}${col}`);
     }
 
-    // Local reserved seats for this show
+    // 1. Local reserved & released tracking
     const localReserved = new Set(getReservedSeats(show.id).map(s => String(s).toUpperCase().trim()));
     const localReleased = new Set(getReleasedSeats(show.id).map(s => String(s).toUpperCase().trim()));
+
+    // 2. Scan all user cancelled bookings to guarantee released seats for this movie/show
+    const userBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile?.id}`) || "[]");
+    const cancelledIds = new Set(JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile?.id}`) || "[]"));
+    const cancelledSeatsForThisMovie = new Set();
+
+    userBookings.forEach(b => {
+        const isCancelled = b.status === "CANCELLED" || cancelledIds.has(String(b.id));
+        if (isCancelled) {
+            const matchesShow = String(b.showId || b.ShowId) === String(show.id);
+            const movieA = (b.movieTitle || "").trim().toLowerCase();
+            const movieB = (show.movie?.title || "").trim().toLowerCase();
+            const matchesMovie = movieA && movieB && (movieA.includes(movieB) || movieB.includes(movieA));
+
+            if (matchesShow || matchesMovie) {
+                const seats = Array.isArray(b.seatLabel) 
+                    ? b.seatLabel 
+                    : (typeof b.seatLabel === "string" ? b.seatLabel.split(",").map(s => s.trim()) : []);
+                seats.forEach(s => cancelledSeatsForThisMovie.add(String(s).toUpperCase().trim()));
+            }
+        }
+    });
 
     // Backend available set if provided
     const hasBackendAvailable = Array.isArray(show.availableSeatLabels) && show.availableSeatLabels.length > 0;
@@ -950,8 +973,17 @@ function renderSeatMap() {
 
     const seatGrid = $("#seatGrid");
     seatGrid.innerHTML = seatLabels.map(label => {
-        // Seat is occupied ONLY if reserved locally or marked unavailable by backend
-        const isOccupied = !localReleased.has(label) && (localReserved.has(label) || (backendAvailableSet && !backendAvailableSet.has(label)));
+        // A seat is available if in localReleased OR cancelledSeatsForThisMovie
+        const isReleased = localReleased.has(label) || cancelledSeatsForThisMovie.has(label);
+        
+        if (isReleased) {
+            localReserved.delete(label);
+        }
+
+        const isOccupied = !isReleased && (
+            localReserved.has(label) || 
+            (backendAvailableSet && !backendAvailableSet.has(label))
+        );
         const isSelected = state.selectedSeats.includes(label);
 
         return `
