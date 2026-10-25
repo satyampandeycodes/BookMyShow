@@ -1186,20 +1186,15 @@ $("#profileLoginForm").onsubmit = async (e) => {
     errorEl.textContent = "";
 
     const identifier = $("#profileIdentifier").value.trim();
+    if (!identifier) return;
+
     try {
         const profile = await fetchJson(`/profiles/login?identifier=${encodeURIComponent(identifier)}`);
         setProfile(profile);
         showToast(`Welcome back, ${profile.name}!`, true);
+        closeModals();
     } catch (err) {
-        // Fallback local sign in so user can always log in even offline
-        const profile = {
-            id: 1,
-            name: identifier.includes("@") ? identifier.split("@")[0] : "Cinema Fan",
-            email: identifier.includes("@") ? identifier : "satyamexample@gmail.com",
-            phone: identifier.includes("@") ? "98XXXXXXXX" : maskPhone(identifier)
-        };
-        setProfile(profile);
-        showToast(`Signed in as ${profile.name}!`, true);
+        errorEl.textContent = err.message || "Account not found. Please click 'Create Account' tab above to register.";
     }
 };
 
@@ -1209,11 +1204,22 @@ $("#profileCreateForm").onsubmit = async (e) => {
     const errorEl = $("#profileCreateError");
     errorEl.textContent = "";
 
+    const rawPhone = $("#profilePhone").value.replace(/\D/g, "");
+    if (rawPhone.length < 10 || rawPhone.length > 15) {
+        errorEl.textContent = "Please enter a valid 10-digit mobile number.";
+        return;
+    }
+
     const newProfile = {
         name: $("#profileName").value.trim(),
-        email: $("#profileEmail").value.trim(),
-        phone: $("#profilePhone").value.trim()
+        email: $("#profileEmail").value.trim().toLowerCase(),
+        phone: rawPhone
     };
+
+    const submitBtn = $("#profileCreateForm button[type='submit']");
+    const origBtnHtml = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = "<span>Creating account in database...</span>";
 
     try {
         const profile = await fetchJson("/profiles", {
@@ -1221,12 +1227,13 @@ $("#profileCreateForm").onsubmit = async (e) => {
             body: JSON.stringify(newProfile)
         });
         setProfile(profile);
-        showToast(`Welcome to BookMyShow, ${profile.name}!`, true);
+        showToast(`Account created & saved in database! Welcome, ${profile.name}.`, true);
+        closeModals();
     } catch (err) {
-        // Fallback local profile creation
-        const profile = { id: Date.now(), ...newProfile };
-        setProfile(profile);
-        showToast(`Welcome to BookMyShow, ${profile.name}!`, true);
+        errorEl.textContent = err.message || "Could not create account in database. Please verify details.";
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml;
     }
 };
 
