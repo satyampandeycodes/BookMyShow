@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Book tickets for Jailer, Kalki 2898 AD, Jawan and latest blockbusters. Explore showtimes, pick your seats, and experience cinema at its best.">
+    <title>BookMyShow | Watch Jailer & Latest Movies, Showtimes & Tickets</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ================= NAVBAR ================= -->
+    <header class="topbar" id="navbar">
+        <div class="topbar-inner">
+            <a class="brand" href="#top" aria-label="BookMyShow home">
+                <span class="brand-logo">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="20" height="20" rx="4"></rect>
+                        <path d="M7 2v20"></path>
+                        <path d="M17 2v20"></path>
+                        <path d="M2 12h20"></path>
+                        <path d="M2 7h5"></path>
+                        <path d="M2 17h5"></path>
+                        <path d="M17 17h5"></path>
+                        <path d="M17 7h5"></path>
+                    </svg>
+                </span>
+                <span class="brand-text">bookmy<span class="brand-accent">show</span></span>
+            </a>
+
+            <!-- Search Bar -->
+            <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input id="searchInput" type="search" placeholder="Search for Jailer 2, Pushpa 2, Stree 2, genres..." autocomplete="off">
+                <button id="searchButton" class="search-submit-btn" type="button" aria-label="Submit search">↵</button>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="header-actions">
+                <!-- City Selector -->
+                <div class="city-selector">
+                    <svg class="city-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+                        <circle cx="12" cy="9" r="2.5"></circle>
+                    </svg>
+                    <select id="citySelect" aria-label="Choose your city">
+                        <option value="Nashik" selected>Nashik</option>
+                        <option value="Bengaluru">Bengaluru</option>
+                        <option value="Mumbai">Mumbai</option>
+                        <option value="Delhi">Delhi</option>
+                    </select>
+                </div>
+
+                <!-- Navigation Links -->
+                <nav class="nav-links">
+                    <a href="#moviesSection" class="nav-link">Movies</a>
+                    <a href="#showtimesSection" class="nav-link">Showtimes</a>
+                </nav>
+
+                <!-- Profile Button -->
+                <button id="profileButton" class="profile-btn" type="button" aria-label="User Account">
+                    <span id="profileAvatarText" class="avatar-text">U</span>
+                    <span class="profile-label" id="profileNameLabel">Sign In</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="top">
+
+        <!-- ================= HERO SHOWCASE ================= -->
+        <section class="hero-section" aria-label="Featured Movie Showcase">
+            <div class="hero-backdrop-container">
+                <img id="heroImage" class="hero-backdrop" src="images/jailer2_poster.jpg" onerror="this.src='https://images.unsplash.com/photo-1631540376030-acb6beacf09d?w=1600'" alt="Jailer 2 Poster" loading="eager" fetchpriority="high">
+                <div class="hero-gradient-overlay"></div>
+                <div class="hero-radial-glow"></div>
+            </div>
+
+            <div class="hero-content">
+                <div class="hero-badge-row">
+                    <span class="live-pill">
+                        <span class="pulse-dot"></span> NOW STREAMING IN CINEMAS
+                    </span>
+                    <span class="sound-pill">DOLBY ATMOS 7.1</span>
+                    <span class="sound-pill">IMAX 4K</span>
+                </div>
+
+                <h1 id="heroTitle" class="hero-title">
+                    JAILER 2
+                </h1>
+
+                <div class="hero-tags">
+                    <span id="heroRating" class="rating-badge">★ 9.1/10 <small>(410K+ Votes)</small></span>
+                    <span class="meta-dot">•</span>
+                    <span id="heroCertificate" class="cert-pill">U/A</span>
+                    <span class="meta-dot">•</span>
+                    <span id="heroLanguage" class="meta-item">Tamil, Hindi</span>
+                    <span class="meta-dot">•</span>
+                    <span id="heroGenre" class="meta-item">Action / Crime / Thriller</span>
+                    <span class="meta-dot">•</span>
+                    <span id="heroDuration" class="meta-item">2h 52m</span>
+                </div>
+
+                <p id="heroDescription" class="hero-synopsis">
+                    Superstar Rajinikanth returns as Tiger Muthuvel Pandian in this explosive blockbuster sequel, unleashing an unstoppable war against an international syndicate.
+                </p>
+
+                <div class="hero-cta-group">
+                    <button id="heroBookButton" class="btn-primary" type="button">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                            <path d="M7 15h0"></path>
+                            <path d="M2 9.5h20"></path>
+                        </svg>
+                        <span>Book Tickets Now</span>
+                    </button>
+
+                    <button id="heroOverviewButton" class="btn-secondary" type="button">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <span>View Overview</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Spotlight quick switcher -->
+            <div class="hero-carousel-dots" id="heroCarouselDots" aria-label="Featured movies">
+                <!-- Generated dynamically -->
+            </div>
+        </section>
+
+        <!-- ================= MOVIES SECTION ================= -->
+        <section class="section-container" id="moviesSection">
+            <div class="section-header">
+                <div>
+                    <span class="section-eyebrow">EXPLORE MOVIES</span>
+                    <h2 class="section-title">Now Showing in <span id="nowShowingCityLabel" class="text-highlight">Nashik</span></h2>
+                </div>
+                <div class="filter-pills" id="movieFilters">
+                    <button class="filter-pill active" data-filter="All" type="button">All</button>
+                    <button class="filter-pill" data-filter="Tamil" type="button">Tamil</button>
+                    <button class="filter-pill" data-filter="Hindi" type="button">Hindi</button>
+                    <button class="filter-pill" data-filter="English" type="button">English</button>
+                    <button class="filter-pill" data-filter="Action" type="button">Action</button>
+                    <button class="filter-pill" data-filter="Sci-Fi" type="button">Sci-Fi</button>
+                    <button class="filter-pill" data-filter="Comedy" type="button">Comedy</button>
+                </div>
+            </div>
+
+            <!-- Search Results Banner (Visible when searching) -->
+            <div id="searchResultsBanner" class="search-results-banner" hidden style="display: none;"></div>
+
+            <!-- Movie Grid -->
+            <div id="movieGrid" class="movie-grid" aria-live="polite">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading blockbuster movies...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SHOWTIMES SECTION ================= -->
+        <section class="section-container showtimes-section" id="showtimesSection">
+            <div class="section-header showtimes-header">
+                <div>
+                    <span class="section-eyebrow">TIMINGS & THEATRES</span>
+                    <h2 class="section-title">
+                        Showtimes in <span id="currentCityLabel" class="text-highlight">Nashik</span>
+                    </h2>
+                    <p class="section-subtitle">Real-time seat availability & instant ticket confirmation</p>
+                </div>
+
+                <!-- 7-Day Date Slider -->
+                <div id="datePicker" class="date-strip" aria-label="Select Date">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Show List -->
+            <div id="showList" class="show-container" aria-live="polite">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Fetching active showtimes from database...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <span class="brand-logo sm">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <rect x="2" y="2" width="20" height="20" rx="4"></rect>
+                            <path d="M7 2v20"></path>
+                            <path d="M17 2v20"></path>
+                            <path d="M2 12h20"></path>
+                        </svg>
+                    </span>
+                    <span class="brand-text">bookmy<span class="brand-accent">show</span></span>
+                </div>
+                <p class="footer-tagline">Experience the thrill of the silver screen with seamless instant bookings.</p>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 BookMyShow Entertainment Pvt. Ltd. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ================================================= -->
+    <!--                 SEAT BOOKING MODAL                -->
+    <!-- ================================================= -->
+    <div id="bookingModal" class="modal-overlay" hidden>
+        <div class="modal-card booking-modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <button id="closeModalButton" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <h2 id="modalTitle">Select Seats</h2>
+                    <p id="modalSubtitle" class="modal-sub">Jailer • PVR City Mall • 10:15 AM</p>
+                </div>
+                <div class="ticket-price-badge">
+                    <span class="price-label">Ticket</span>
+                    <strong id="modalTicketPrice">₹250</strong>
+                </div>
+            </div>
+
+            <!-- Screen Visualizer -->
+            <div class="screen-visualizer">
+                <div class="screen-curve"></div>
+                <span class="screen-tag">SCREEN THIS WAY</span>
+            </div>
+
+            <!-- Seat Map -->
+            <div class="seat-container">
+                <div id="seatGrid" class="seat-grid" aria-label="Cinema Seat Layout">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Seat Legend -->
+            <div class="seat-legend">
+                <div class="legend-item">
+                    <span class="legend-box available"></span>
+                    <span>Available</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box selected"></span>
+                    <span>Selected</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box occupied"></span>
+                    <span>Sold Out</span>
+                </div>
+            </div>
+
+            <!-- Modal Action Footer -->
+            <div class="modal-action-bar">
+                <div class="selected-summary">
+                    <span class="summary-label">Selected Seats</span>
+                    <div id="selectedSeatsList" class="seats-pill-row">
+                        <span class="no-seat-text">None selected</span>
+                    </div>
+                </div>
+
+                <div class="booking-total-wrap">
+                    <span class="summary-label">Total Amount</span>
+                    <strong id="totalAmount" class="total-price">₹0</strong>
+                </div>
+
+                <button id="continueButton" class="btn-primary btn-book" type="button" disabled>
+                    <span>Proceed to Book</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================= -->
+    <!--            BOOKING CONFIRMATION MODAL             -->
+    <!-- ================================================= -->
+    <div id="customerModal" class="modal-overlay" hidden>
+        <div class="modal-card confirmation-card" role="dialog" aria-modal="true" aria-labelledby="customerTitle">
+            <button id="closeCustomerButton" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+
+            <div class="modal-head">
+                <span class="section-eyebrow">FINAL STEP</span>
+                <h2 id="customerTitle">Confirm Your Ticket</h2>
+                <p id="bookingProfileLabel" class="modal-sub">Booking for Satyam Pandey (satyam@example.com)</p>
+            </div>
+
+            <form id="customerForm" class="confirmation-form">
+                <div class="ticket-summary-box">
+                    <div class="summary-row">
+                        <span>Movie</span>
+                        <strong id="confirmMovieTitle">Jailer</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Theatre</span>
+                        <strong id="confirmTheatreName">PVR: City Mall</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Showtime</span>
+                        <strong id="confirmShowtime">10:15 AM</strong>
+                    </div>
+                    <div class="summary-row">
+                        <span>Seats</span>
+                        <strong id="formSeats" class="highlight-seats">-</strong>
+                    </div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-row total-row">
+                        <span>Total Payable</span>
+                        <strong id="formTotal" class="total-highlight">₹0</strong>
+                    </div>
+                </div>
+
+                <button class="btn-primary btn-confirm-submit" type="submit">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Confirm & Book Seats</span>
+                </button>
+
+                <p id="bookingError" class="form-error-msg" role="alert"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================================================= -->
+    <!--            PROFILE & BOOKINGS MODAL               -->
+    <!-- ================================================= -->
+    <div id="accountModal" class="modal-overlay" hidden>
+        <div class="modal-card account-modal-card" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+            <button id="closeAccountButton" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+
+            <div class="modal-head">
+                <span class="section-eyebrow">BOOKMYSHOW ACCOUNT</span>
+                <h2 id="accountTitle">User Profile</h2>
+                <p class="modal-sub">Manage your profile and access all your booked tickets.</p>
+            </div>
+
+            <!-- Profile Authentication (Sign In / Register) -->
+            <div id="profileAuth" class="profile-auth-box">
+                <div class="auth-toggle">
+                    <button id="loginTab" class="auth-toggle-btn active" type="button">Quick Login</button>
+                    <button id="createTab" class="auth-toggle-btn" type="button">Create Account</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="profileLoginForm" class="auth-form">
+                    <div class="input-group">
+                        <label for="profileIdentifier">Email Address or Mobile Number</label>
+                        <input id="profileIdentifier" required type="text" placeholder="e.g. satyam@example.com or 9569671854">
+                    </div>
+
+                    <button class="btn-primary" type="submit">
+                        <span>Sign In</span>
+                    </button>
+                    <p id="profileLoginError" class="form-error-msg" role="alert"></p>
+                </form>
+
+                <!-- Create Form -->
+                <form id="profileCreateForm" class="auth-form" hidden style="display: none;">
+                    <div class="input-group">
+                        <label for="profileName">Full Name</label>
+                        <input id="profileName" required maxlength="100" placeholder="e.g. Satyam Pandey">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="profileEmail">Email Address</label>
+                        <input id="profileEmail" required type="email" maxlength="200" placeholder="e.g. you@example.com">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="profilePhone">Mobile Number</label>
+                        <input id="profilePhone" required type="tel" pattern="[0-9+ ()-]{10,20}" maxlength="20" placeholder="e.g. 9876543210">
+                    </div>
+
+                    <button class="btn-primary" type="submit">
+                        <span>Create Profile & Sign In</span>
+                    </button>
+                    <p id="profileCreateError" class="form-error-msg" role="alert"></p>
+                </form>
+            </div>
+
+            <!-- Profile View (When Logged In) -->
+            <div id="profileView" class="profile-dashboard" hidden style="display: none;">
+                <div class="user-summary-card">
+                    <div class="user-avatar-badge" id="profileBadgeLetter">U</div>
+                    <div class="user-details">
+                        <strong id="profileDisplayName">User</strong>
+                        <p id="profileDisplayContact">user@example.com</p>
+                    </div>
+                    <button id="logoutButton" class="btn-logout" type="button">Logout</button>
+                </div>
+
+                <div class="booking-history-wrap">
+                    <div class="history-head">
+                        <h3>Your Bookings</h3>
+                        <span class="refresh-note">Auto-synced with MySQL</span>
+                    </div>
+
+                    <div id="bookingHistory" class="booking-history-list" aria-live="polite">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================= -->
+    <!--            MOVIE OVERVIEW & DETAILS MODAL         -->
+    <!-- ================================================= -->
+    <div id="movieDetailModal" class="modal-overlay" hidden style="display: none;">
+        <div class="modal-card movie-detail-card" role="dialog" aria-modal="true" aria-labelledby="detailMovieTitle">
+            <button id="closeDetailButton" class="modal-close-btn" type="button" aria-label="Close overview">✕</button>
+            <div class="movie-detail-body">
+                <div class="detail-poster-wrap">
+                    <img id="detailPoster" src="" alt="Movie Poster">
+                    <span id="detailCertificate" class="poster-badge">U/A</span>
+                </div>
+                <div class="detail-info-wrap">
+                    <h2 id="detailMovieTitle" class="detail-title">Movie Title</h2>
+                    <div class="detail-meta-row">
+                        <span id="detailRating" class="rating-badge">★ 9.0/10</span>
+                        <span class="meta-dot">•</span>
+                        <span id="detailLanguage">Hindi</span>
+                        <span class="meta-dot">•</span>
+                        <span id="detailGenre">Action</span>
+                        <span class="meta-dot">•</span>
+                        <span id="detailDuration">2h 45m</span>
+                    </div>
+                    <div class="detail-synopsis-box">
+                        <h4>Story Overview</h4>
+                        <p id="detailDescription">Detailed synopsis...</p>
+                    </div>
+                    <div class="detail-showtimes-box">
+                        <h4>Today's Showtimes in <span id="detailCityLabel">Nashik</span></h4>
+                        <div id="detailShowtimeSlots" class="detail-slot-row">
+                            <!-- Populated with showtimes -->
+                        </div>
+                    </div>
+                    <button id="detailBookButton" class="btn-primary" style="width: 100%; margin-top: 18px;" type="button">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                            <path d="M7 15h0"></path>
+                            <path d="M2 9.5h20"></path>
+                        </svg>
+                        <span>Book Showtimes Below</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="successToast" class="toast-notification" role="status" aria-live="polite">
+        <span class="toast-icon">✓</span>
+        <span id="toastMessage">Action completed successfully.</span>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
