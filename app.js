@@ -119,14 +119,7 @@ const CITY_SCHEDULES = {
 // STATE MANAGEMENT
 // ======================================================
 
-const rawSavedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") || "null");
-if (rawSavedProfile) {
-    if (rawSavedProfile.phone) rawSavedProfile.phone = maskPhone(rawSavedProfile.phone);
-    if (rawSavedProfile.name && rawSavedProfile.name.toLowerCase().includes("satyam")) rawSavedProfile.name = "Cinema Fan";
-    if (rawSavedProfile.email && rawSavedProfile.email.toLowerCase().includes("satyam")) rawSavedProfile.email = "satyamexample@gmail.com";
-    try { localStorage.setItem("bookmyshow_profile", JSON.stringify(rawSavedProfile)); } catch {}
-}
-const savedProfile = rawSavedProfile;
+const savedProfile = JSON.parse(localStorage.getItem("bookmyshow_profile") || "null");
 
 const state = {
     movies: [...FALLBACK_MOVIES],
@@ -1020,8 +1013,8 @@ $("#customerForm").onsubmit = async (e) => {
     try {
         let result = null;
 
-        // Try backend API confirmation
-        if (show.id < 9000) {
+        // Try backend API confirmation if show exists in database
+        try {
             result = await fetchJson(`/bookings/shows/${show.id}`, {
                 method: "POST",
                 body: JSON.stringify({
@@ -1029,7 +1022,8 @@ $("#customerForm").onsubmit = async (e) => {
                     seatLabel: state.selectedSeats
                 })
             });
-        } else {
+        } catch (apiErr) {
+            console.warn("Backend booking API:", apiErr.message);
             // Local confirmation for dynamic persistent shows
             result = {
                 id: Date.now(),
@@ -1151,11 +1145,6 @@ function updateProfileUI() {
 }
 
 function setProfile(profile) {
-    if (profile) {
-        if (profile.phone) profile.phone = maskPhone(profile.phone);
-        if (profile.name && profile.name.toLowerCase().includes("satyam")) profile.name = "Cinema Fan";
-        if (profile.email && profile.email.toLowerCase().includes("satyam")) profile.email = "satyamexample@gmail.com";
-    }
     state.profile = profile;
     localStorage.setItem("bookmyshow_profile", JSON.stringify(profile));
     updateProfileUI();
@@ -1230,6 +1219,18 @@ $("#profileCreateForm").onsubmit = async (e) => {
         showToast(`Account created & saved in database! Welcome, ${profile.name}.`, true);
         closeModals();
     } catch (err) {
+        // If account already exists with this email or phone, automatically log them in!
+        const errMsg = String(err.message || "");
+        if (errMsg.includes("already exists") || errMsg.includes("Conflict") || errMsg.includes("409")) {
+            try {
+                showToast("Account already exists with this detail. Logging you in...", true);
+                const existing = await fetchJson(`/profiles/login?identifier=${encodeURIComponent(newProfile.phone || newProfile.email)}`);
+                setProfile(existing);
+                showToast(`Welcome back, ${existing.name}! Logged into your account.`, true);
+                closeModals();
+                return;
+            } catch (loginErr) {}
+        }
         errorEl.textContent = err.message || "Could not create account in database. Please verify details.";
     } finally {
         submitBtn.disabled = false;
