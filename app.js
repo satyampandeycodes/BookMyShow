@@ -83,10 +83,36 @@ const FALLBACK_MOVIES = [
 ];
 
 const CITY_THEATRES = {
-    "Nashik": { id: 4, name: "PVR: City Mall", address: "City Centre Mall, Lawate Nagar, Nashik" },
-    "Bengaluru": { id: 3, name: "INOX: Megaplex", address: "Phoenix Marketcity, Whitefield, Bengaluru" },
-    "Mumbai": { id: 2, name: "INOX: R-City", address: "R-City Mall, LBS Marg, Ghatkopar West, Mumbai" },
-    "Delhi": { id: 1, name: "PVR: Select CITYWALK", address: "A-3, District Centre, Saket, New Delhi" }
+    "Nashik": { id: 4, name: "PVR: City Mall", address: "City Centre Mall, Lawate Nagar, Nashik", city: "Nashik" },
+    "Bengaluru": { id: 3, name: "INOX: Megaplex", address: "Phoenix Marketcity, Whitefield, Bengaluru", city: "Bengaluru" },
+    "Mumbai": { id: 2, name: "INOX: R-City", address: "R-City Mall, LBS Marg, Ghatkopar West, Mumbai", city: "Mumbai" },
+    "Delhi": { id: 1, name: "PVR: Select CITYWALK", address: "A-3, District Centre, Saket, New Delhi", city: "Delhi" }
+};
+
+const CITY_SCHEDULES = {
+    "Nashik": [
+        { movieTitle: "Jailer 2", times: ["10:15", "14:30", "18:45", "22:15"], prices: [220, 280, 350, 300] },
+        { movieTitle: "Kalki 2898 AD", times: ["11:00", "19:30"], prices: [280, 360] },
+        { movieTitle: "Stree 2", times: ["13:00", "21:00"], prices: [200, 260] }
+    ],
+    "Mumbai": [
+        { movieTitle: "Jawan", times: ["10:30", "15:00", "19:15"], prices: [250, 320, 420] },
+        { movieTitle: "Pushpa 2: The Rule", times: ["12:00", "16:45", "21:30"], prices: [300, 380, 450] },
+        { movieTitle: "Devara: Part 1", times: ["13:30", "18:00", "22:45"], prices: [240, 300, 360] },
+        { movieTitle: "Jailer 2", times: ["17:15", "21:00"], prices: [320, 400] }
+    ],
+    "Bengaluru": [
+        { movieTitle: "Kalki 2898 AD", times: ["09:45", "14:15", "18:30"], prices: [240, 320, 400] },
+        { movieTitle: "Jailer 2", times: ["11:30", "17:00", "21:45"], prices: [280, 360, 440] },
+        { movieTitle: "Stree 2", times: ["15:30", "20:30"], prices: [220, 290] },
+        { movieTitle: "Pushpa 2: The Rule", times: ["13:15", "19:45"], prices: [260, 350] }
+    ],
+    "Delhi": [
+        { movieTitle: "Stree 2", times: ["10:00", "13:45", "18:00", "22:15"], prices: [260, 340, 420, 380] },
+        { movieTitle: "Jawan", times: ["11:15", "16:30", "21:00"], prices: [280, 360, 450] },
+        { movieTitle: "Pushpa 2: The Rule", times: ["14:30", "19:30"], prices: [300, 400] },
+        { movieTitle: "Devara: Part 1", times: ["12:45", "17:45"], prices: [250, 320] }
+    ]
 };
 
 // ======================================================
@@ -214,32 +240,25 @@ async function fetchJson(endpoint, options = {}) {
 function generateDynamicShows(cityName, dateStr) {
     const theatre = CITY_THEATRES[cityName] || CITY_THEATRES["Nashik"];
     const movies = state.movies.length > 0 ? state.movies : FALLBACK_MOVIES;
-
-    const timeConfigs = [
-        { time: "10:15", price: 220 },
-        { time: "14:30", price: 280 },
-        { time: "18:45", price: 350 },
-        { time: "22:15", price: 300 }
-    ];
+    const schedule = CITY_SCHEDULES[cityName] || CITY_SCHEDULES["Nashik"];
 
     const generated = [];
-    let counter = 9100;
+    let counter = (theatre.id || 1) * 1000;
 
-    movies.forEach((movie, mIdx) => {
-        // Schedule 2 distinct showtimes for each movie
-        const slots = [timeConfigs[mIdx % timeConfigs.length], timeConfigs[(mIdx + 2) % timeConfigs.length]];
+    schedule.forEach((item, itemIdx) => {
+        let movie = movies.find(m => m.title && m.title.toLowerCase().includes(item.movieTitle.toLowerCase().split(":")[0].trim()));
+        if (!movie) movie = movies[itemIdx % movies.length];
 
-        slots.forEach((cfg) => {
+        item.times.forEach((timeStr, tIdx) => {
             counter++;
-            const startsAt = `${dateStr}T${cfg.time}:00`;
-            
-            // Generate seat labels A1-J10 (100 seats)
+            const price = item.prices[tIdx] || 250;
+            const startsAt = `${dateStr}T${timeStr}:00`;
+
             const availableSeats = [];
             for (let i = 0; i < 100; i++) {
                 const row = String.fromCharCode(65 + Math.floor(i / 10));
                 const col = (i % 10) + 1;
-                // Leave 85% of seats available
-                if ((i + mIdx) % 7 !== 0) {
+                if ((i + itemIdx + tIdx) % 7 !== 0) {
                     availableSeats.push(`${row}${col}`);
                 }
             }
@@ -249,7 +268,7 @@ function generateDynamicShows(cityName, dateStr) {
                 movie: movie,
                 theatre: theatre,
                 startsAt: startsAt,
-                ticketPrice: cfg.price,
+                ticketPrice: price,
                 totalSeats: 100,
                 availableSeatLabels: availableSeats
             });
@@ -273,15 +292,24 @@ function getHeroMovies() {
 }
 
 function getCityFilteredMovies() {
-    if (!state.shows || state.shows.length === 0) {
-        return state.movies && state.movies.length > 0 ? state.movies : FALLBACK_MOVIES;
+    const selectedCity = $("#citySelect") ? $("#citySelect").value : "Nashik";
+    const cityLower = selectedCity.trim().toLowerCase();
+    const expectedTheatre = (CITY_THEATRES[selectedCity]?.name || "").trim().toLowerCase();
+
+    const cityShows = (state.shows || []).filter(s => {
+        const theatreCity = (s.theatre?.city || "").trim().toLowerCase();
+        const theatreName = (s.theatre?.name || "").trim().toLowerCase();
+        return theatreCity === cityLower || theatreName === expectedTheatre;
+    });
+
+    if (cityShows.length > 0) {
+        const cityMovieIds = new Set(cityShows.map(s => Number(s.movie?.id)).filter(Boolean));
+        if (cityMovieIds.size > 0) {
+            const filtered = state.movies.filter(m => cityMovieIds.has(Number(m.id)));
+            if (filtered.length > 0) return filtered;
+        }
     }
-    const cityMovieIds = new Set(state.shows.map(s => Number(s.movie?.id)).filter(Boolean));
-    if (cityMovieIds.size === 0) {
-        return state.movies && state.movies.length > 0 ? state.movies : FALLBACK_MOVIES;
-    }
-    const filtered = state.movies.filter(m => cityMovieIds.has(Number(m.id)));
-    return filtered.length > 0 ? filtered : state.movies;
+    return state.movies && state.movies.length > 0 ? state.movies : FALLBACK_MOVIES;
 }
 
 function updateHeroContent(movie) {
@@ -573,8 +601,7 @@ async function loadMovies() {
         console.warn("Backend sleeping or unreachable. Using fallback movies:", err.message);
         state.movies = [...FALLBACK_MOVIES];
     } finally {
-        renderHero(false);
-        startHeroAutoRotate();
+        // Smoothly update movie list without resetting or flickering the hero banner!
         renderMovies();
     }
 }
@@ -693,16 +720,25 @@ function renderDates() {
 function renderShows() {
     const container = $("#showList");
     const city = $("#citySelect").value;
+    const cityLower = city.trim().toLowerCase();
     $("#currentCityLabel").textContent = city;
 
-    if (!state.shows.length) {
-        // Guarantee shows are generated
-        state.shows = generateDynamicShows(city, state.selectedDate);
+    // Filter strictly for shows in this selected city
+    let cityShows = state.shows.filter(s => {
+        const theatreCity = (s.theatre?.city || "").trim().toLowerCase();
+        const theatreName = (s.theatre?.name || "").trim().toLowerCase();
+        const expectedTheatre = (CITY_THEATRES[city]?.name || "").trim().toLowerCase();
+        return theatreCity === cityLower || theatreName === expectedTheatre;
+    });
+
+    if (!cityShows.length) {
+        cityShows = generateDynamicShows(city, state.selectedDate);
+        state.shows = cityShows;
     }
 
     // Group shows by Theatre -> Movie
     const grouped = {};
-    state.shows.forEach(show => {
+    cityShows.forEach(show => {
         const theatreId = show.theatre?.id || "unknown";
         if (!grouped[theatreId]) {
             grouped[theatreId] = {
@@ -784,18 +820,24 @@ async function loadShows() {
     state.showsLoaded = true;
     renderShows();
     renderMovies();
-    renderHero(false);
-    restartHeroAutoRotate();
+    // HERO IS UNTOUCHED - continues smooth rotation without jumping
 
-    // 2. Background cloud synchronization without freezing or showing loading spinners
+    // 2. Background cloud synchronization
     try {
         const cityParam = encodeURIComponent(selectedCity);
         const backendShows = await fetchJson(`/shows?city=${cityParam}&date=${state.selectedDate}`);
         if (Array.isArray(backendShows) && backendShows.length > 0) {
-            state.shows = backendShows;
-            showsCache[cacheKey] = backendShows;
-            renderShows();
-            renderMovies();
+            const cityLower = selectedCity.trim().toLowerCase();
+            const filteredBackend = backendShows.filter(s => {
+                const tCity = (s.theatre?.city || "").trim().toLowerCase();
+                return !tCity || tCity === cityLower;
+            });
+            if (filteredBackend.length > 0) {
+                state.shows = filteredBackend;
+                showsCache[cacheKey] = filteredBackend;
+                renderShows();
+                renderMovies();
+            }
         }
     } catch (err) {
         // Smoothly retain instant shows
@@ -1324,7 +1366,7 @@ $("#citySelect").onchange = () => {
     if (currentCityLabel) {
         currentCityLabel.textContent = selectedCity;
     }
-    state.heroIndex = 0;
+    // Hero carousel is untouched - maintains smooth rotation!
     loadShows();
 };
 
@@ -1363,5 +1405,7 @@ window.addEventListener("keydown", (e) => {
 
 updateProfileUI();
 renderDates();
+renderHero(false);
+startHeroAutoRotate();
 loadMovies();
 loadShows();
