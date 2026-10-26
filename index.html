@@ -385,17 +385,17 @@
                 <form id="profileCreateForm" class="auth-form" autocomplete="off" hidden style="display: none;">
                     <div class="input-group">
                         <label for="profileName">Full Name</label>
-                        <input id="profileName" name="bms_user_fname" required maxlength="100" placeholder="Enter your full name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
+                        <input id="profileName" name="bms_user_fname" required maxlength="100" placeholder="Enter your full name" autocomplete="name" autocorrect="off" autocapitalize="words" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <div class="input-group">
                         <label for="profileEmail">Email Address</label>
-                        <input id="profileEmail" name="bms_user_email_addr" required type="email" maxlength="200" placeholder="satyamexample@gmail.com" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
+                        <input id="profileEmail" name="bms_user_email_addr" required type="email" maxlength="200" placeholder="satyamexample@gmail.com" autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <div class="input-group">
                         <label for="profilePhone">Mobile Number</label>
-                        <input id="profilePhone" name="bms_user_cell_no" required type="text" inputmode="numeric" pattern="[0-9+ ()-]{10,20}" maxlength="15" placeholder="e.g. 98XXXXXXXX" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
+                        <input id="profilePhone" name="bms_user_cell_no" required type="text" inputmode="numeric" pattern="[0-9+ ()-]{10,20}" maxlength="20" placeholder="e.g. 98XXXXXXXX" autocomplete="tel" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                     </div>
 
                     <button class="btn-primary" type="submit">
