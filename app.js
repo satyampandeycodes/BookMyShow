@@ -863,8 +863,31 @@ function normalizeStr(str) {
     return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeTime(t) {
+    if (!t) return "";
+    const str = String(t).trim();
+    if (str.includes("T")) {
+        const timePart = str.split("T")[1];
+        if (timePart) {
+            const parts = timePart.split(":");
+            return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
+        }
+    }
+    const match = str.match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
+    if (match) {
+        let h = parseInt(match[1], 10);
+        const m = match[2];
+        const meridiem = (match[3] || "").toLowerCase();
+        if (meridiem === "pm" && h < 12) h += 12;
+        if (meridiem === "am" && h === 12) h = 0;
+        return `${String(h).padStart(2, "0")}:${m}`;
+    }
+    return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function parseSeatLabels(seatLabel) {
-    if (Array.isArray(seatLabel)) return seatLabel.map(s => String(s).toUpperCase().trim());
+    if (!seatLabel) return [];
+    if (Array.isArray(seatLabel)) return seatLabel.map(s => String(s).toUpperCase().trim()).filter(Boolean);
     if (typeof seatLabel === "string") return seatLabel.split(",").map(s => String(s).toUpperCase().trim()).filter(Boolean);
     return [];
 }
@@ -875,6 +898,16 @@ function getAllActiveProfileBookings() {
         const profileBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
         list.push(...profileBookings);
     }
+    try {
+        const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+        if (Array.isArray(masterBookings)) {
+            masterBookings.forEach(mb => {
+                if (!list.some(existing => String(existing.id) === String(mb.id))) {
+                    list.push(mb);
+                }
+            });
+        }
+    } catch (e) {}
     if (Array.isArray(activeBookingsList) && activeBookingsList.length > 0) {
         activeBookingsList.forEach(b => {
             if (!list.some(existing => String(existing.id) === String(b.id))) {
@@ -884,7 +917,7 @@ function getAllActiveProfileBookings() {
     }
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("bms_bookings_")) {
+        if (key && (key.startsWith("bms_bookings_") || key === "bms_bookings")) {
             try {
                 const arr = JSON.parse(localStorage.getItem(key) || "[]");
                 if (Array.isArray(arr)) {
@@ -906,31 +939,56 @@ function getOccupiedSeatsForCurrentShow() {
 
     const showMovieNorm = normalizeStr(show.movie?.title);
     const showCityNorm = normalizeStr(show.theatre?.city || $("#citySelect")?.value);
-    const showTimeStr = formatTime(show.startsAt).trim();
+    const showTimeNorm = normalizeTime(show.startsAt);
     const showIdStr = String(show.id);
 
     const occupiedSeats = new Set();
-    const allBookings = getAllActiveProfileBookings();
 
-    const cancelledIds = new Set();
-    if (state.profile?.id) {
-        const cArr = JSON.parse(localStorage.getItem(`bms_cancelled_ids_${state.profile.id}`) || "[]");
-        cArr.forEach(id => cancelledIds.add(String(id)));
+    // 1. Backend availableSeatLabels: seats missing from it are already reserved in MySQL!
+    if (Array.isArray(show.availableSeatLabels) && show.availableSeatLabels.length > 0 && show.availableSeatLabels.length < Number(show.totalSeats || 100)) {
+        const availSet = new Set(show.availableSeatLabels.map(s => String(s).toUpperCase().trim()));
+        const total = Number(show.totalSeats || 100);
+        for (let i = 0; i < total; i++) {
+            const row = String.fromCharCode(65 + Math.floor(i / 10));
+            const col = (i % 10) + 1;
+            const label = `${row}${col}`;
+            if (!availSet.has(label)) {
+                occupiedSeats.add(label);
+            }
+        }
     }
 
+    // 2. Local persistent reserved seats store (bms_reserved_seats)
+    try {
+        const reservedMap = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+        if (Array.isArray(reservedMap[showIdStr])) {
+            reservedMap[showIdStr].forEach(s => occupiedSeats.add(String(s).toUpperCase().trim()));
+        }
+        const sig = `${showMovieNorm}_${showCityNorm}_${showTimeNorm}`;
+        if (Array.isArray(reservedMap[sig])) {
+            reservedMap[sig].forEach(s => occupiedSeats.add(String(s).toUpperCase().trim()));
+        }
+    } catch (e) {}
+
+    // 3. Derived directly from CONFIRMED bookings in active state & storage
+    const allBookings = getAllActiveProfileBookings();
+    const cancelledIds = getCancelledIds();
+
     allBookings.forEach(b => {
-        const isCancelled = b.status === "CANCELLED" || cancelledIds.has(String(b.id));
+        if (!b) return;
+        const isCancelled = (b.status || "").toUpperCase() === "CANCELLED" || cancelledIds.has(String(b.id));
         if (isCancelled) return; // Cancelled bookings NEVER occupy seats!
 
-        if (b.status === "CONFIRMED") {
+        const isConfirmed = (b.status || "CONFIRMED").toUpperCase() === "CONFIRMED";
+        if (isConfirmed) {
             const bMovieNorm = normalizeStr(b.movieTitle);
             const bCityNorm = normalizeStr(b.theatreCity || b.city);
-            const bTimeStr = (b.showtime || (b.startsAt ? formatTime(b.startsAt) : "")).trim();
+            const bTimeNorm = normalizeTime(b.showtime || (b.startsAt ? formatTime(b.startsAt) : ""));
             const bShowIdStr = String(b.showId || b.ShowId || "");
 
-            const idMatches = bShowIdStr && bShowIdStr === showIdStr;
-            const detailsMatch = bMovieNorm && showMovieNorm && bMovieNorm === showMovieNorm &&
-                (!bTimeStr || !showTimeStr || bTimeStr === showTimeStr) &&
+            const idMatches = bShowIdStr && (bShowIdStr === showIdStr);
+            const detailsMatch = bMovieNorm && showMovieNorm && (bMovieNorm === showMovieNorm) &&
+                (!bTimeNorm || !showTimeNorm || bTimeNorm === showTimeNorm) &&
                 (!bCityNorm || !showCityNorm || bCityNorm === showCityNorm);
 
             if (idMatches || detailsMatch) {
@@ -951,19 +1009,46 @@ function getReleasedSeats(showId) {
     return [];
 }
 
-function markSeatsReserved(showId, seats) {
-    // Keep for backward compatibility
-    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
-    const current = new Set(all[String(showId)] || []);
-    seats.forEach(s => current.add(String(s).toUpperCase().trim()));
-    all[String(showId)] = Array.from(current);
-    localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+function markSeatsReserved(showId, seats, movieTitle = "", showtime = "", city = "") {
+    try {
+        const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+        const seatsArr = parseSeatLabels(seats);
+
+        if (showId) {
+            const current = new Set(all[String(showId)] || []);
+            seatsArr.forEach(s => current.add(s));
+            all[String(showId)] = Array.from(current);
+        }
+
+        if (movieTitle) {
+            const sig = `${normalizeStr(movieTitle)}_${normalizeStr(city || $("#citySelect")?.value)}_${normalizeTime(showtime)}`;
+            const currentSig = new Set(all[sig] || []);
+            seatsArr.forEach(s => currentSig.add(s));
+            all[sig] = Array.from(currentSig);
+        }
+
+        localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+    } catch (e) {}
 }
 
-function releaseSeats(showId, seats) {
-    const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
-    delete all[String(showId)];
-    localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+function releaseSeats(showId, seats, movieTitle = "", showtime = "", city = "") {
+    try {
+        const all = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+        const toRelease = new Set(parseSeatLabels(seats));
+
+        if (showId && all[String(showId)]) {
+            all[String(showId)] = all[String(showId)].filter(s => !toRelease.has(s));
+        }
+
+        if (movieTitle) {
+            const sig = `${normalizeStr(movieTitle)}_${normalizeStr(city || $("#citySelect")?.value)}_${normalizeTime(showtime)}`;
+            if (all[sig]) {
+                all[sig] = all[sig].filter(s => !toRelease.has(s));
+            }
+        }
+
+        localStorage.setItem("bms_reserved_seats", JSON.stringify(all));
+    } catch (e) {}
 }
 
 // ======================================================
@@ -1135,13 +1220,14 @@ $("#customerForm").onsubmit = async (e) => {
             };
         }
 
-        // Mark seats as reserved
-        markSeatsReserved(show.id, state.selectedSeats);
+        // Mark seats as reserved with showId and signature
+        markSeatsReserved(show.id, state.selectedSeats, show.movie?.title, show.startsAt, show.theatre?.city);
 
         const newBookingRecord = {
             id: result.id || Date.now(),
             bookedAt: result.bookedAt || new Date().toISOString(),
             showId: show.id,
+            ShowId: show.id,
             movieTitle: show.movie?.title || "Movie",
             theatreName: show.theatre?.name || "Cinema",
             theatreCity: show.theatre?.city || $("#citySelect")?.value || "Nashik",
@@ -1149,15 +1235,26 @@ $("#customerForm").onsubmit = async (e) => {
             showDate: state.selectedDate ? formatDateLabel(state.selectedDate) : "Today",
             screen: show.screenName || "Audi 2",
             movieMeta: `${show.movie?.language || 'Hindi'} • ${show.movie?.genre || 'Action'} • ${show.movie?.certificate || 'U/A'}`,
-            seatLabel: [...state.selectedSeats],
+            seatLabel: parseSeatLabels(state.selectedSeats),
             totalAmount: total,
             status: "CONFIRMED",
             ticketCode: `MV-${Math.floor(100000 + Math.random() * 900000)}`
         };
 
-        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        const profileIdKey = state.profile?.id || "default";
+        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${profileIdKey}`) || "[]");
         localBookings.unshift(newBookingRecord);
-        localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(localBookings));
+        localStorage.setItem(`bms_bookings_${profileIdKey}`, JSON.stringify(localBookings));
+
+        try {
+            const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+            masterBookings.unshift(newBookingRecord);
+            localStorage.setItem("bms_master_bookings", JSON.stringify(masterBookings));
+        } catch (e) {}
+
+        if (Array.isArray(activeBookingsList)) {
+            activeBookingsList.unshift(newBookingRecord);
+        }
 
         closeModals();
         loadShows();
@@ -1166,10 +1263,13 @@ $("#customerForm").onsubmit = async (e) => {
         showToast(`🎉 Booking Confirmed! E-Ticket generated for ${show.movie?.title}!`, true);
     } catch (err) {
         console.error("BOOKING FALLBACK:", err);
+        markSeatsReserved(show?.id, state.selectedSeats, show?.movie?.title, show?.startsAt, show?.theatre?.city);
+
         const fallbackBooking = {
             id: Date.now(),
             bookedAt: new Date().toISOString(),
             showId: show?.id,
+            ShowId: show?.id,
             movieTitle: show?.movie?.title || "Movie",
             theatreName: show?.theatre?.name || "Cinema",
             theatreCity: show?.theatre?.city || $("#citySelect")?.value || "Nashik",
@@ -1177,15 +1277,26 @@ $("#customerForm").onsubmit = async (e) => {
             showDate: state.selectedDate ? formatDateLabel(state.selectedDate) : "Today",
             screen: show?.screenName || "Audi 2",
             movieMeta: `${show?.movie?.language || 'Hindi'} • ${show?.movie?.genre || 'Action'} • ${show?.movie?.certificate || 'U/A'}`,
-            seatLabel: [...state.selectedSeats],
+            seatLabel: parseSeatLabels(state.selectedSeats),
             totalAmount: total,
             status: "CONFIRMED",
             ticketCode: `MV-${Math.floor(100000 + Math.random() * 900000)}`
         };
 
-        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        const profileIdKey = state.profile?.id || "default";
+        const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${profileIdKey}`) || "[]");
         localBookings.unshift(fallbackBooking);
-        localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(localBookings));
+        localStorage.setItem(`bms_bookings_${profileIdKey}`, JSON.stringify(localBookings));
+
+        try {
+            const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+            masterBookings.unshift(fallbackBooking);
+            localStorage.setItem("bms_master_bookings", JSON.stringify(masterBookings));
+        } catch (e) {}
+
+        if (Array.isArray(activeBookingsList)) {
+            activeBookingsList.unshift(fallbackBooking);
+        }
 
         closeModals();
         loadShows();
@@ -1589,21 +1700,54 @@ function getCancelledIds() {
 async function loadBookingHistory() {
     if (!state.profile) return;
     const historyContainer = $("#bookingHistory");
-    const localBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
     const cancelledIds = getCancelledIds();
 
-    // 1. Instant 0ms render from local bookings with cancelled IDs applied
+    // 1. Gather all local bookings across profile key, master key, default key, and active memory
+    const localBookingsMap = new Map();
+    const addBookingToMap = (b) => {
+        if (!b || (!b.id && !b.movieTitle)) return;
+        const sId = String(b.id || `loc_${b.movieTitle}_${parseSeatLabels(b.seatLabel).join('_')}`);
+        if (localBookingsMap.has(sId)) {
+            const existing = localBookingsMap.get(sId);
+            localBookingsMap.set(sId, { ...existing, ...b });
+        } else {
+            localBookingsMap.set(sId, b);
+        }
+    };
+
+    try {
+        const pBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+        if (Array.isArray(pBookings)) pBookings.forEach(addBookingToMap);
+    } catch (e) {}
+
+    try {
+        const mBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+        if (Array.isArray(mBookings)) mBookings.forEach(addBookingToMap);
+    } catch (e) {}
+
+    try {
+        const defBookings = JSON.parse(localStorage.getItem("bms_bookings_default") || "[]");
+        if (Array.isArray(defBookings)) defBookings.forEach(addBookingToMap);
+    } catch (e) {}
+
+    if (Array.isArray(activeBookingsList)) {
+        activeBookingsList.forEach(addBookingToMap);
+    }
+
+    const localBookings = Array.from(localBookingsMap.values());
+
+    // Instant 0ms render from local bookings with cancelled IDs applied
     const initialList = localBookings.map(b => cancelledIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
     renderBookingCards(initialList);
 
     // Track request sequence to prevent background race condition from resetting cancelled status
     const reqSeq = ++bookingHistoryReqSeq;
 
-    // 2. Fetch backend bookings and deduplicate seamlessly
+    // 2. Fetch backend bookings and merge seamlessly with rich local data
     try {
         const backendBookings = await fetchJson(`/profiles/${state.profile.id}/bookings`);
         
-        // Discard response if a cancellation or another fetch happened in the meantime!
+        // Discard response if another action happened in the meantime
         if (reqSeq !== bookingHistoryReqSeq) {
             return;
         }
@@ -1613,34 +1757,61 @@ async function loadBookingHistory() {
 
         const combined = [];
         const processBooking = (b) => {
+            if (!b) return;
             const isCancelled = b.status === "CANCELLED" || freshCancelledIds.has(String(b.id));
             const status = isCancelled ? "CANCELLED" : (b.status || "CONFIRMED");
             const cleanB = { ...b, status };
 
-            // Create unique signature based on show/movie and seat labels
-            const seatsKey = parseSeatLabels(cleanB.seatLabel).sort().join(",");
-            const showKey = String(cleanB.showId || cleanB.ShowId || cleanB.show?.id || cleanB.movieTitle || "");
-            const uniqueKey = `${showKey}_${seatsKey}`;
+            const bId = String(cleanB.id || "");
+            const bSeats = parseSeatLabels(cleanB.seatLabel).sort().join(",");
+            const bMovie = normalizeStr(cleanB.movieTitle);
 
-            if (uniqueKey && uniqueKey !== "_") {
-                const existingIdx = combined.findIndex(item => {
-                    const iSeats = parseSeatLabels(item.seatLabel).sort().join(",");
-                    const iShow = String(item.showId || item.ShowId || item.show?.id || item.movieTitle || "");
-                    return `${iShow}_${iSeats}` === uniqueKey;
-                });
+            const existingIdx = combined.findIndex(item => {
+                const iId = String(item.id || "");
+                if (bId && iId && bId === iId) return true;
 
-                if (existingIdx !== -1) {
-                    // Merge duplicate entry: if either is cancelled, the merged booking is cancelled!
-                    if (status === "CANCELLED" || combined[existingIdx].status === "CANCELLED") {
-                        combined[existingIdx].status = "CANCELLED";
-                        freshCancelledIds.add(String(b.id));
-                        freshCancelledIds.add(String(combined[existingIdx].id));
-                    }
-                    if (Number(b.id) < 1000000 && Number(combined[existingIdx].id) > 1000000) {
-                        combined[existingIdx].id = b.id;
-                    }
-                    return;
+                const iSeats = parseSeatLabels(item.seatLabel).sort().join(",");
+                const iMovie = normalizeStr(item.movieTitle);
+
+                // Match if same movie & same seats
+                if (bMovie && iMovie && bMovie === iMovie && bSeats && iSeats && bSeats === iSeats) {
+                    return true;
                 }
+                return false;
+            });
+
+            if (existingIdx !== -1) {
+                const existing = combined[existingIdx];
+                const cancelled = existing.status === "CANCELLED" || status === "CANCELLED" ||
+                                  freshCancelledIds.has(String(existing.id)) || freshCancelledIds.has(String(cleanB.id));
+
+                let finalId = existing.id;
+                if (Number(cleanB.id) < 1000000 && Number(cleanB.id) > 0) {
+                    finalId = cleanB.id;
+                }
+
+                combined[existingIdx] = {
+                    ...cleanB,
+                    ...existing,
+                    id: finalId,
+                    status: cancelled ? "CANCELLED" : "CONFIRMED",
+                    theatreName: existing.theatreName || cleanB.theatreName || cleanB.threatreName || existing.threatreName || "PVR: City Mall",
+                    theatreCity: existing.theatreCity || cleanB.theatreCity || $("#citySelect")?.value || "Nashik",
+                    showtime: existing.showtime || cleanB.showtime || (cleanB.startsAt ? formatTime(cleanB.startsAt) : "") || "10:15 AM",
+                    showDate: existing.showDate || cleanB.showDate || formatBookingDate(cleanB.bookedAt || existing.bookedAt),
+                    screen: existing.screen || cleanB.screen || "Audi 2 (Dolby Atmos)",
+                    movieMeta: existing.movieMeta || cleanB.movieMeta || "Hindi • 2D • U/A",
+                    seatLabel: parseSeatLabels(existing.seatLabel).length > 0 ? parseSeatLabels(existing.seatLabel) : parseSeatLabels(cleanB.seatLabel),
+                    totalAmount: existing.totalAmount || cleanB.totalAmount || 0,
+                    ticketCode: existing.ticketCode || cleanB.ticketCode || `MV-${String(finalId).slice(-6)}`
+                };
+
+                if (cancelled) {
+                    freshCancelledIds.add(String(existing.id));
+                    freshCancelledIds.add(String(cleanB.id));
+                    freshCancelledIds.add(String(finalId));
+                }
+                return;
             }
 
             combined.push(cleanB);
@@ -1708,9 +1879,10 @@ function openTicketDetailModal(booking) {
     const showtime = booking.showtime || (booking.startsAt ? formatTime(booking.startsAt) : "10:15 AM");
     const showDate = booking.showDate || formatBookingDate(booking.bookedAt);
     const screen = booking.screen || "Audi 2 (Dolby Atmos)";
-    const seats = Array.isArray(booking.seatLabel) ? booking.seatLabel.join(", ") : (booking.seatLabel || "A1");
+    const seatArr = parseSeatLabels(booking.seatLabel);
+    const seats = seatArr.length > 0 ? seatArr.join(", ") : "A1";
     const ticketCode = booking.ticketCode || `MV-${String(booking.id).slice(-6) || "849201"}`;
-    const isConfirmed = booking.status === "CONFIRMED";
+    const isConfirmed = (booking.status || "CONFIRMED").toUpperCase() === "CONFIRMED";
 
     $("#ticketMovieTitle").textContent = booking.movieTitle || "Movie";
     $("#ticketMovieMeta").textContent = booking.movieMeta || "Hindi, Tamil • 2D • U/A";
@@ -1725,7 +1897,7 @@ function openTicketDetailModal(booking) {
 
     const statusBadge = $("#ticketStatusBadge");
     if (statusBadge) {
-        statusBadge.textContent = booking.status || "CONFIRMED";
+        statusBadge.textContent = isConfirmed ? "CONFIRMED" : "CANCELLED";
         statusBadge.className = `status-badge ${isConfirmed ? 'confirmed' : 'cancelled'}`;
     }
 
@@ -1780,8 +1952,8 @@ async function cancelBookingById(bookingId, triggerBtn = null) {
         if (targetBooking) {
             const showId = targetBooking.showId || targetBooking.ShowId || targetBooking.show?.id || state.selectedShow?.id;
             const seats = parseSeatLabels(targetBooking.seatLabel);
-            if (showId && seats.length > 0) {
-                releaseSeats(showId, seats);
+            if (seats.length > 0) {
+                releaseSeats(showId, seats, targetBooking.movieTitle, targetBooking.showtime, targetBooking.theatreCity);
             }
 
             // Cancel any duplicate records for the exact same seats
@@ -1817,6 +1989,12 @@ async function cancelBookingById(bookingId, triggerBtn = null) {
         // 3. Update localBookings storage
         const updatedLocal = localBookings.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
         localStorage.setItem(`bms_bookings_${state.profile.id}`, JSON.stringify(updatedLocal));
+
+        try {
+            const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+            const updatedMaster = masterBookings.map(b => matchingIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
+            localStorage.setItem("bms_master_bookings", JSON.stringify(updatedMaster));
+        } catch (e) {}
 
         // 4. Instantly update activeBookingsList and re-render cards in 0ms (1-click guaranteed!)
         if (Array.isArray(activeBookingsList)) {
@@ -1864,13 +2042,21 @@ async function cancelBookingById(bookingId, triggerBtn = null) {
 
 function renderBookingCards(list) {
     const historyContainer = $("#bookingHistory");
-    if (!list || !list.length) {
+    if (!historyContainer) return;
+
+    if (!Array.isArray(list) || !list.length) {
         historyContainer.innerHTML = `<div class="empty-state">No bookings found in your account.</div>`;
         return;
     }
 
     // Always keep the latest (newest) booking at the very top of My Bookings
-    const sortedList = [...list].sort((a, b) => {
+    const validList = list.filter(b => b && (b.movieTitle || b.id));
+    if (!validList.length) {
+        historyContainer.innerHTML = `<div class="empty-state">No bookings found in your account.</div>`;
+        return;
+    }
+
+    const sortedList = [...validList].sort((a, b) => {
         const timeA = getBookingTimestamp(a);
         const timeB = getBookingTimestamp(b);
         if (timeB !== timeA) return timeB - timeA;
@@ -1880,8 +2066,9 @@ function renderBookingCards(list) {
     activeBookingsList = sortedList;
 
     historyContainer.innerHTML = sortedList.map((b, idx) => {
-        const seats = (b.seatLabel || []).join(", ");
-        const isConfirmed = b.status === "CONFIRMED";
+        const seatArr = parseSeatLabels(b.seatLabel);
+        const seats = seatArr.length > 0 ? seatArr.join(", ") : "A1";
+        const isConfirmed = (b.status || "CONFIRMED").toUpperCase() === "CONFIRMED";
         const theatre = b.theatreName || b.threatreName || "PVR: City Mall";
         const city = b.theatreCity || b.city || $("#citySelect")?.value || "Nashik";
         const showtime = b.showtime || (b.startsAt ? formatTime(b.startsAt) : "10:15 AM");
@@ -1893,7 +2080,7 @@ function renderBookingCards(list) {
                 <div class="ticket-header">
                     <strong>${escapeHtml(b.movieTitle || "Movie")}</strong>
                     <span class="status-badge ${isConfirmed ? 'confirmed' : 'cancelled'}">
-                        ${escapeHtml(b.status || (isConfirmed ? "CONFIRMED" : "CANCELLED"))}
+                        ${escapeHtml(isConfirmed ? "CONFIRMED" : "CANCELLED")}
                     </span>
                 </div>
                 <div class="ticket-location-row">
