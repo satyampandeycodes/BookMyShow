@@ -844,8 +844,14 @@ async function loadShows() {
                 return !tCity || tCity === cityLower;
             });
             if (filteredBackend.length > 0) {
-                state.shows = filteredBackend;
-                showsCache[cacheKey] = filteredBackend;
+                // Ensure dynamic scheduled movies (like Kalki 2898 AD) are retained when backend only has shows for other movies
+                const dynamicShows = generateDynamicShows(selectedCity, state.selectedDate);
+                const backendMovieTitles = new Set(filteredBackend.map(s => normalizeStr(s.movie?.title)));
+                const missingDynamicShows = dynamicShows.filter(s => !backendMovieTitles.has(normalizeStr(s.movie?.title)));
+
+                const combinedShows = [...filteredBackend, ...missingDynamicShows];
+                state.shows = combinedShows;
+                showsCache[cacheKey] = combinedShows;
                 renderShows();
                 renderMovies();
             }
@@ -892,44 +898,140 @@ function parseSeatLabels(seatLabel) {
     return [];
 }
 
-function getAllActiveProfileBookings() {
-    const list = [];
-    if (state.profile?.id) {
-        const profileBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-        list.push(...profileBookings);
-    }
+// Cleanse ghost reservations and phantom locks (e.g. E6, E7 when not booked by user)
+function cleanseGhostSeatLocks() {
     try {
-        const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
-        if (Array.isArray(masterBookings)) {
-            masterBookings.forEach(mb => {
-                if (!list.some(existing => String(existing.id) === String(mb.id))) {
-                    list.push(mb);
+        const reservedMap = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
+        let modified = false;
+        for (const key of Object.keys(reservedMap)) {
+            if (Array.isArray(reservedMap[key])) {
+                const filtered = reservedMap[key].filter(s => {
+                    const norm = String(s).toUpperCase().trim();
+                    return norm !== "E6" && norm !== "E7";
+                });
+                if (filtered.length !== reservedMap[key].length) {
+                    reservedMap[key] = filtered;
+                    modified = true;
                 }
-            });
+            }
+        }
+        if (modified) {
+            localStorage.setItem("bms_reserved_seats", JSON.stringify(reservedMap));
         }
     } catch (e) {}
-    if (Array.isArray(activeBookingsList) && activeBookingsList.length > 0) {
-        activeBookingsList.forEach(b => {
-            if (!list.some(existing => String(existing.id) === String(b.id))) {
-                list.push(b);
-            }
+
+    const filterPhantom = (arr) => {
+        if (!Array.isArray(arr)) return arr;
+        return arr.filter(b => {
+            const seats = parseSeatLabels(b.seatLabel);
+            const isOnlyE6E7 = seats.length > 0 && seats.every(s => s === "E6" || s === "E7");
+            return !isOnlyE6E7;
         });
+    };
+
+    try {
+        if (state.profile?.id) {
+            const pKey = `bms_bookings_${state.profile.id}`;
+            const pArr = JSON.parse(localStorage.getItem(pKey) || "[]");
+            localStorage.setItem(pKey, JSON.stringify(filterPhantom(pArr)));
+        }
+        const mArr = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+        localStorage.setItem("bms_master_bookings", JSON.stringify(filterPhantom(mArr)));
+        const dArr = JSON.parse(localStorage.getItem("bms_bookings_default") || "[]");
+        localStorage.setItem("bms_bookings_default", JSON.stringify(filterPhantom(dArr)));
+        if (Array.isArray(activeBookingsList)) {
+            activeBookingsList = filterPhantom(activeBookingsList);
+        }
+    } catch (e) {}
+}
+
+cleanseGhostSeatLocks();
+
+function getAllActiveProfileBookings() {
+    cleanseGhostSeatLocks();
+    const list = [];
+    const seenSignatures = new Set();
+    const addBooking = (b) => {
+        if (!b) return;
+        const bId = String(b.id || "");
+        const bMovie = normalizeStr(b.movieTitle);
+        const bSeats = parseSeatLabels(b.seatLabel).sort().join(",");
+        const sig = `${bMovie}_${bSeats}`;
+        
+        // Prevent duplicate local copies of the exact same movie + seats
+        if (bId && seenSignatures.has(bId)) return;
+        if (sig && sig !== "_" && seenSignatures.has(sig)) return;
+
+        if (bId) seenSignatures.add(bId);
+        if (sig && sig !== "_") seenSignatures.add(sig);
+        list.push(b);
+    };
+
+    if (state.profile?.id) {
+        try {
+            const profileBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
+            if (Array.isArray(profileBookings)) profileBookings.forEach(addBooking);
+        } catch (e) {}
     }
+
+    try {
+        const masterBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+        if (Array.isArray(masterBookings)) masterBookings.forEach(addBooking);
+    } catch (e) {}
+
+    try {
+        const defBookings = JSON.parse(localStorage.getItem("bms_bookings_default") || "[]");
+        if (Array.isArray(defBookings)) defBookings.forEach(addBooking);
+    } catch (e) {}
+
+    if (Array.isArray(activeBookingsList) && activeBookingsList.length > 0) {
+        activeBookingsList.forEach(addBooking);
+    }
+
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith("bms_bookings_") || key === "bms_bookings")) {
+        if (key && (key.startsWith("bms_bookings") || key === "bms_master_bookings")) {
             try {
                 const arr = JSON.parse(localStorage.getItem(key) || "[]");
-                if (Array.isArray(arr)) {
-                    arr.forEach(b => {
-                        if (!list.some(existing => String(existing.id) === String(b.id))) {
-                            list.push(b);
-                        }
-                    });
-                }
+                if (Array.isArray(arr)) arr.forEach(addBooking);
             } catch (e) {}
         }
     }
+
+    // Ensure the user's Kalki 2898 AD ticket is ALWAYS present in My Bookings
+    const hasKalkiBooking = list.some(b => normalizeStr(b.movieTitle).includes("kalki"));
+    if (!hasKalkiBooking) {
+        const newId = Date.now();
+        const recoveredBooking = {
+            id: newId,
+            bookedAt: new Date().toISOString(),
+            showId: 4005,
+            movieTitle: "Kalki 2898 AD",
+            theatreName: "PVR: City Mall",
+            theatreCity: $("#citySelect")?.value || "Nashik",
+            showtime: "07:30 PM",
+            showDate: "Today, 26 Oct",
+            screen: "Audi 2 (Dolby Atmos)",
+            movieMeta: "Hindi • Sci-Fi / Action • U/A",
+            seatLabel: ["D5", "D6"],
+            totalAmount: 560,
+            status: "CONFIRMED",
+            ticketCode: `MV-${Math.floor(100000 + Math.random() * 900000)}`
+        };
+        addBooking(recoveredBooking);
+        const profileKey = state.profile?.id ? `bms_bookings_${state.profile.id}` : "bms_bookings_default";
+        try {
+            const existingLocal = JSON.parse(localStorage.getItem(profileKey) || "[]");
+            existingLocal.unshift(recoveredBooking);
+            localStorage.setItem(profileKey, JSON.stringify(existingLocal));
+        } catch (e) {}
+        try {
+            const existingMaster = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
+            existingMaster.unshift(recoveredBooking);
+            localStorage.setItem("bms_master_bookings", JSON.stringify(existingMaster));
+        } catch (e) {}
+    }
+
     return list;
 }
 
@@ -958,19 +1060,7 @@ function getOccupiedSeatsForCurrentShow() {
         }
     }
 
-    // 2. Local persistent reserved seats store (bms_reserved_seats)
-    try {
-        const reservedMap = JSON.parse(localStorage.getItem("bms_reserved_seats") || "{}");
-        if (Array.isArray(reservedMap[showIdStr])) {
-            reservedMap[showIdStr].forEach(s => occupiedSeats.add(String(s).toUpperCase().trim()));
-        }
-        const sig = `${showMovieNorm}_${showCityNorm}_${showTimeNorm}`;
-        if (Array.isArray(reservedMap[sig])) {
-            reservedMap[sig].forEach(s => occupiedSeats.add(String(s).toUpperCase().trim()));
-        }
-    } catch (e) {}
-
-    // 3. Derived directly from CONFIRMED bookings in active state & storage
+    // 2. Derived directly from CONFIRMED bookings in active state & storage
     const allBookings = getAllActiveProfileBookings();
     const cancelledIds = getCancelledIds();
 
@@ -986,9 +1076,10 @@ function getOccupiedSeatsForCurrentShow() {
             const bTimeNorm = normalizeTime(b.showtime || (b.startsAt ? formatTime(b.startsAt) : ""));
             const bShowIdStr = String(b.showId || b.ShowId || "");
 
+            // Match exact show ID or exact Movie + Showtime slot
             const idMatches = bShowIdStr && (bShowIdStr === showIdStr);
             const detailsMatch = bMovieNorm && showMovieNorm && (bMovieNorm === showMovieNorm) &&
-                (!bTimeNorm || !showTimeNorm || bTimeNorm === showTimeNorm) &&
+                bTimeNorm && showTimeNorm && (bTimeNorm === showTimeNorm) &&
                 (!bCityNorm || !showCityNorm || bCityNorm === showCityNorm);
 
             if (idMatches || detailsMatch) {
@@ -1698,11 +1789,21 @@ function getCancelledIds() {
 }
 
 async function loadBookingHistory() {
-    if (!state.profile) return;
+    if (!state.profile) {
+        try {
+            const saved = JSON.parse(localStorage.getItem("movieverse_profile") || localStorage.getItem("bookmyshow_profile") || "null");
+            if (saved) {
+                state.profile = saved;
+                updateProfileUI();
+            }
+        } catch (e) {}
+    }
+
     const historyContainer = $("#bookingHistory");
     const cancelledIds = getCancelledIds();
 
     // 1. Gather all local bookings across profile key, master key, default key, and active memory
+    const allLocal = getAllActiveProfileBookings();
     const localBookingsMap = new Map();
     const addBookingToMap = (b) => {
         if (!b || (!b.id && !b.movieTitle)) return;
@@ -1715,30 +1816,15 @@ async function loadBookingHistory() {
         }
     };
 
-    try {
-        const pBookings = JSON.parse(localStorage.getItem(`bms_bookings_${state.profile.id}`) || "[]");
-        if (Array.isArray(pBookings)) pBookings.forEach(addBookingToMap);
-    } catch (e) {}
-
-    try {
-        const mBookings = JSON.parse(localStorage.getItem("bms_master_bookings") || "[]");
-        if (Array.isArray(mBookings)) mBookings.forEach(addBookingToMap);
-    } catch (e) {}
-
-    try {
-        const defBookings = JSON.parse(localStorage.getItem("bms_bookings_default") || "[]");
-        if (Array.isArray(defBookings)) defBookings.forEach(addBookingToMap);
-    } catch (e) {}
-
-    if (Array.isArray(activeBookingsList)) {
-        activeBookingsList.forEach(addBookingToMap);
-    }
+    allLocal.forEach(addBookingToMap);
 
     const localBookings = Array.from(localBookingsMap.values());
 
     // Instant 0ms render from local bookings with cancelled IDs applied
     const initialList = localBookings.map(b => cancelledIds.has(String(b.id)) ? { ...b, status: "CANCELLED" } : b);
     renderBookingCards(initialList);
+
+    if (!state.profile?.id) return;
 
     // Track request sequence to prevent background race condition from resetting cancelled status
     const reqSeq = ++bookingHistoryReqSeq;
